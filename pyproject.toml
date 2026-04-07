@@ -35,7 +35,6 @@ dependencies = [
     "submitit",
     "tqdm",
     "pymunk",
-    "decord",
     "omegaconf",
     "ruamel.yaml",
 ]
