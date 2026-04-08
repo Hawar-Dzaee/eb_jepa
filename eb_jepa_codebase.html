@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EB-JEPA · Codebase Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #c9d1d9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 32px 32px;
+    min-height: 100vh;
+    max-width: 1300px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #8b949e;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 11px;
+    color: #30363d;
+  }
+
+  #legend {
+    display: flex;
+    gap: 22px;
+    margin-bottom: 16px;
+  }
+
+  .leg {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: #6e7681;
+  }
+
+  .leg-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  #main {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  #svg-wrap {
+    flex: 1;
+    min-width: 0;
+    height: 560px;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .node { cursor: pointer; }
+  .node, .edge { transition: opacity 0.18s; }
+  .node.dim { opacity: 0.38; }
+  .edge.dim { opacity: 0.15; }
+
+  .node-rect { transition: filter 0.15s; }
+  .node.lit .node-rect {
+    filter: drop-shadow(0 0 10px var(--glow));
+  }
+
+  #info {
+    width: 280px;
+    flex-shrink: 0;
+    order: -1;
+    padding: 20px 22px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: #6e7681;
+    position: sticky;
+    top: 28px;
+  }
+
+  #info b { color: #e6edf3; font-size: 15px; display: block; margin-bottom: 10px; }
+  #info .placeholder { color: #30363d; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EB-JEPA · Codebase Map</h1>
+  <p>Hover to highlight connections · Click to pin</p>
+</header>
+
+<div id="legend">
+  <div class="leg"><div class="leg-dot" style="background:#c9922a"></div>Examples</div>
+  <div class="leg"><div class="leg-dot" style="background:#2f81f7"></div>Core</div>
+  <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div>Support</div>
+</div>
+
+<div id="main">
+  <div id="svg-wrap">
+    <svg id="g" viewBox="0 0 900 540"></svg>
+  </div>
+  <div id="info">
+    <span class="placeholder">Hover any file to see what it does.</span>
+  </div>
+</div>
+
+<script>
+// ── Layout constants ────────────────────────────────
+const W = 200, H = 80, RX = 11;
+const hw = W / 2, hh = H / 2;
+
+// ── Color themes ────────────────────────────────────
+const T = {
+  example: { bg: '#1e1608', border: '#c9922a', text: '#e8a030', sub: '#8a6020', glow: '#c9922a' },
+  core:    { bg: '#0d1e3a', border: '#2f81f7', text: '#58a6ff', sub: '#1e4a8a', glow: '#2f81f7' },
+  support: { bg: '#160e2e', border: '#8b5cf6', text: '#b08ef0', sub: '#5a3aaa', glow: '#8b5cf6' },
+};
+
+// ── Nodes ───────────────────────────────────────────
+const nodes = [
+  { id: 'img',  cx: 155,  cy: 80,  g: 'example', label: 'image_jepa/',      sub: 'No predictor · CIFAR-10',
+    desc: 'The simplest entry point. Trains an encoder + projector using VICReg or SIGReg on CIFAR-10 images — no predictor involved (it\'s a JEA, not a full JEPA). Evaluated with a frozen linear probe. Achieves ~91% accuracy. <b>Read this first.</b>' },
+
+  { id: 'vid',  cx: 450,  cy: 80,  g: 'example', label: 'video_jepa/',      sub: 'Future frames · Moving MNIST',
+    desc: 'Adds a predictor. A ResNet5 encoder + ResUNet predictor learn to predict future video frame embeddings on Moving MNIST. Training uses parallel unroll; evaluation uses autoregressive unroll. The cleanest example at ~278 lines.' },
+
+  { id: 'acv',  cx: 745,  cy: 80,  g: 'example', label: 'ac_video_jepa/',   sub: 'World model + planning',
+    desc: 'The most complex example. An Impala encoder + GRU predictor form an action-conditioned world model in the Two Rooms environment. After training, CEM or MPPI planners search for action sequences that reach a goal embedding in latent space.' },
+
+  { id: 'tu',   cx: 110,  cy: 295, g: 'support', label: 'training_utils.py', sub: 'LR · checkpoints · W&B',
+    desc: 'Shared training infrastructure used by all three examples. Handles learning-rate scheduling, gradient clipping, checkpoint saving and loading, and Weights & Biases logging. You rarely need to touch this.' },
+
+  { id: 'jepa', cx: 450,  cy: 295, g: 'core',    label: 'jepa.py',           sub: 'The central hub',
+    desc: 'The heart of the codebase. Defines <b>JEPA</b> (trainable), <b>JEPAbase</b> (inference only), and <b>JEPAProbe</b> (frozen encoder + head). The <b>unroll()</b> method handles both parallel training and autoregressive planning in one unified function.' },
+
+  { id: 'plan', cx: 745,  cy: 295, g: 'core',    label: 'planning.py',       sub: 'CEM · MPPI',
+    desc: 'Two model-predictive planning algorithms. <b>CEM</b>: iteratively sample action sequences → evaluate in latent space → refit a Gaussian to the top-K. <b>MPPI</b>: importance-weighted sampling for smoother plans. Both use jepa.py\'s world model.' },
+
+  { id: 'loss', cx: 285,  cy: 475, g: 'core',    label: 'losses.py',         sub: 'VICReg · SIGReg · IDM · Cov',
+    desc: 'All loss functions. Prediction: <b>MSE</b>. Anti-collapse: <b>HingeStdLoss</b> (variance), <b>CovarianceLoss</b> (decorrelation), <b>TemporalSimilarityLoss</b>, <b>InverseDynamicsLoss</b>, <b>VICRegLoss</b>, <b>VC_IDM_Sim_Regularizer</b>, and <b>BCS</b> (SIGReg). Read this before jepa.py.' },
+
+  { id: 'arch', cx: 615,  cy: 475, g: 'core',    label: 'architectures.py',  sub: 'ResNet5 · Impala · ViT · GRU',
+    desc: 'All neural network building blocks. Encoders: <b>ResNet5</b> (video), <b>Impala</b> (ac_video), <b>ResNet18 + ViT</b> (image). Predictors: <b>ResUNet</b> (convolutional, parallel) and <b>RNNPredictor/GRU</b> (autoregressive). Also: projector MLP and IDM module.' },
+];
+
+// ── Edges ───────────────────────────────────────────
+const edges = [
+  { f: 'img',  t: 'jepa' },
+  { f: 'vid',  t: 'jepa' },
+  { f: 'acv',  t: 'jepa' },
+  { f: 'acv',  t: 'plan' },
+  { f: 'plan', t: 'jepa' },
+  { f: 'jepa', t: 'loss' },
+  { f: 'jepa', t: 'arch' },
+  { f: 'img',  t: 'tu'   },
+  { f: 'vid',  t: 'tu'   },
+  { f: 'acv',  t: 'tu'   },
+];
+
+// ── Build maps ──────────────────────────────────────
+const nMap = {};
+nodes.forEach(n => nMap[n.id] = n);
+
+const nbr = {}, eByN = {};
+nodes.forEach(n => { nbr[n.id] = new Set(); eByN[n.id] = []; });
+edges.forEach((e, i) => {
+  nbr[e.f].add(e.t); nbr[e.t].add(e.f);
+  eByN[e.f].push(i); eByN[e.t].push(i);
+});
+
+// ── Geometry ────────────────────────────────────────
+function borderPt(n, tx, ty) {
+  const dx = tx - n.cx, dy = ty - n.cy;
+  if (!dx && !dy) return { x: n.cx, y: n.cy };
+  const len = Math.hypot(dx, dy);
+  const nx = dx / len, ny = dy / len;
+  const tX = Math.abs(nx) > 1e-9 ? hw / Math.abs(nx) : Infinity;
+  const tY = Math.abs(ny) > 1e-9 ? hh / Math.abs(ny) : Infinity;
+  const t = Math.min(tX, tY);
+  return { x: n.cx + nx * t, y: n.cy + ny * t };
+}
+
+function curvePath(x1, y1, x2, y2) {
+  const adx = Math.abs(x2 - x1), ady = Math.abs(y2 - y1);
+  let c1x, c1y, c2x, c2y;
+  if (ady >= adx) {
+    const o = ady * 0.42;
+    c1x = x1; c1y = y1 + Math.sign(y2 - y1) * o;
+    c2x = x2; c2y = y2 - Math.sign(y2 - y1) * o;
+  } else {
+    const o = adx * 0.42;
+    c1x = x1 + Math.sign(x2 - x1) * o; c1y = y1;
+    c2x = x2 - Math.sign(x2 - x1) * o; c2y = y2;
+  }
+  return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
+}
+
+// ── SVG helpers ─────────────────────────────────────
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('g');
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ── Defs: arrowhead markers ──────────────────────────
+const defs = el('defs', {}, svg);
+function mkMarker(id, color) {
+  const m = el('marker', { id, markerWidth: 8, markerHeight: 8, refX: 7, refY: 3, orient: 'auto' }, defs);
+  el('path', { d: 'M0,0 L0,6 L8,3 z', fill: color }, m);
+}
+mkMarker('ar',  '#2d3440');
+mkMarker('ar-h','#58a6ff');
+
+// ── Draw edges ───────────────────────────────────────
+const edgeEls = edges.map((e, i) => {
+  const fn = nMap[e.f], tn = nMap[e.t];
+  const s = borderPt(fn, tn.cx, tn.cy);
+  const t = borderPt(tn, fn.cx, fn.cy);
+  const g = el('g', { class: 'edge' }, svg);
+  const p = el('path', {
+    d: curvePath(s.x, s.y, t.x, t.y),
+    fill: 'none', stroke: '#2d3440',
+    'stroke-width': 1.5,
+    'marker-end': 'url(#ar)',
+  }, g);
+  return { g, p };
+});
+
+// ── Draw nodes ───────────────────────────────────────
+const nodeEls = {};
+nodes.forEach(n => {
+  const c = T[n.g];
+  const g = el('g', { class: 'node', style: `--glow:${c.glow}` }, svg);
+  g.dataset.id = n.id;
+
+  el('rect', {
+    class: 'node-rect',
+    x: n.cx - hw, y: n.cy - hh, width: W, height: H, rx: RX,
+    fill: c.bg, stroke: c.border, 'stroke-width': 1.5,
+  }, g);
+
+  // Label
+  const t1 = el('text', {
+    x: n.cx, y: n.cy - 8,
+    'text-anchor': 'middle',
+    'font-size': 15, 'font-weight': 600,
+    fill: c.text,
+    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+  }, g);
+  t1.textContent = n.label;
+
+  // Sub-label
+  const t2 = el('text', {
+    x: n.cx, y: n.cy + 14,
+    'text-anchor': 'middle',
+    'font-size': 11,
+    fill: c.border, opacity: 0.75,
+    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+  }, g);
+  t2.textContent = n.sub;
+
+  nodeEls[n.id] = g;
+});
+
+// ── Interactivity ────────────────────────────────────
+const info = document.getElementById('info');
+let pinned = null;
+
+function show(id) {
+  const n = nMap[id];
+  const connected = new Set(eByN[id]);
+
+  Object.entries(nodeEls).forEach(([nid, el]) => {
+    el.classList.toggle('dim', nid !== id && !nbr[id].has(nid));
+    el.classList.toggle('lit', nid === id);
+  });
+
+  edgeEls.forEach(({ g, p }, i) => {
+    const isConn = connected.has(i);
+    g.classList.toggle('dim', !isConn);
+    p.setAttribute('stroke', isConn ? '#58a6ff' : '#2d3440');
+    p.setAttribute('stroke-width', isConn ? 2 : 1.5);
+    p.setAttribute('marker-end', isConn ? 'url(#ar-h)' : 'url(#ar)');
+  });
+
+  // Bring connected edges to front
+  edgeEls.forEach(({ g }, i) => { if (connected.has(i)) svg.appendChild(g); });
+  // Bring hovered node to front
+  svg.appendChild(nodeEls[id]);
+
+  info.innerHTML = `<b>${n.label}</b>${n.desc}`;
+}
+
+function clear() {
+  Object.values(nodeEls).forEach(el => el.classList.remove('dim', 'lit'));
+  edgeEls.forEach(({ g, p }) => {
+    g.classList.remove('dim');
+    p.setAttribute('stroke', '#2d3440');
+    p.setAttribute('stroke-width', 1.5);
+    p.setAttribute('marker-end', 'url(#ar)');
+  });
+  if (!pinned) info.innerHTML = '<span class="placeholder">Hover any file to see what it does.</span>';
+}
+
+Object.entries(nodeEls).forEach(([id, el]) => {
+  el.addEventListener('mouseenter', () => { if (!pinned) show(id); });
+  el.addEventListener('mouseleave', () => { if (!pinned) clear(); });
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    pinned = (pinned === id) ? null : id;
+    pinned ? show(id) : clear();
+  });
+});
+
+document.getElementById('svg-wrap').addEventListener('click', () => {
+  if (pinned) { pinned = null; clear(); }
+});
+</script>
+</body>
+</html>
