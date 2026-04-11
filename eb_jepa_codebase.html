@@ -5,187 +5,553 @@
 <title>EB-JEPA · Codebase Map</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
-    background: #0d1117;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #c9d1d9;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 28px 32px 32px;
-    min-height: 100vh;
-    max-width: 1300px;
-    margin: 0 auto;
-    width: 100%;
+    background: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #c9d1d9; display: flex; flex-direction: column; align-items: center;
+    padding: 20px 24px 28px; min-height: 100vh;
   }
+  header { text-align: center; margin-bottom: 10px; }
+  header h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #8b949e; margin-bottom: 3px; }
+  header p { font-size: 11px; color: #484f58; }
 
-  header {
-    text-align: center;
-    margin-bottom: 16px;
-  }
+  #legend { display: flex; gap: 18px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6e7681; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
 
-  header h1 {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #8b949e;
-    margin-bottom: 4px;
-  }
-
-  header p {
-    font-size: 11px;
-    color: #30363d;
-  }
-
-  #legend {
-    display: flex;
-    gap: 22px;
-    margin-bottom: 16px;
-  }
-
-  .leg {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11px;
-    color: #6e7681;
-  }
-
-  .leg-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-  }
-
-  #main {
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-    width: 100%;
-  }
-
-  #svg-wrap {
-    flex: 1;
-    min-width: 0;
-    height: 560px;
-  }
-
-  svg {
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-  }
+  #main { display: flex; gap: 16px; align-items: flex-start; width: 100%; max-width: 1600px; }
+  #svg-wrap { flex: 1; min-width: 0; height: 620px; }
+  svg { width: 100%; height: 100%; overflow: visible; }
 
   .node { cursor: pointer; }
   .node, .edge { transition: opacity 0.18s; }
-  .node.dim { opacity: 0.38; }
-  .edge.dim { opacity: 0.15; }
-
+  .node.dim { opacity: 0.32; }
+  .edge.dim { opacity: 0.12; }
   .node-rect { transition: filter 0.15s; }
-  .node.lit .node-rect {
-    filter: drop-shadow(0 0 10px var(--glow));
-  }
+  .node.lit .node-rect { filter: drop-shadow(0 0 10px var(--glow)); }
 
-  #info {
-    width: 280px;
-    flex-shrink: 0;
-    order: -1;
-    padding: 20px 22px;
-    background: #161b22;
-    border: 1px solid #21262d;
-    border-radius: 12px;
-    font-size: 14px;
-    line-height: 1.75;
-    color: #6e7681;
-    position: sticky;
-    top: 28px;
+  #sidebar {
+    width: 400px; flex-shrink: 0; position: sticky; top: 20px;
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: calc(100vh - 40px); overflow-y: auto;
   }
+  #sidebar::-webkit-scrollbar { width: 5px; }
+  #sidebar::-webkit-scrollbar-thumb { background: #21262d; border-radius: 3px; }
 
-  #info b { color: #e6edf3; font-size: 15px; display: block; margin-bottom: 10px; }
-  #info .placeholder { color: #30363d; font-size: 13px; }
+  #info, #dict {
+    padding: 16px 18px; background: #161b22; border: 1px solid #21262d;
+    border-radius: 10px; font-size: 13px; line-height: 1.6; color: #8b949e;
+  }
+  #info b, #dict b { color: #e6edf3; font-size: 14px; display: block; margin-bottom: 6px; }
+  .placeholder { color: #30363d; font-size: 13px; }
+  .module-summary { color: #c9d1d9; margin-bottom: 10px; font-size: 12px; line-height: 1.55; }
+  .file-path { font-family: 'SF Mono','Fira Code',monospace; font-size: 10.5px; color: #484f58; margin-bottom: 8px; display: block; }
+
+  /* Items */
+  .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #484f58; font-weight: 600; margin: 10px 0 6px; }
+  .item-legend { display: flex; gap: 12px; margin-bottom: 6px; font-size: 10px; color: #484f58; }
+  .item-legend span { display: flex; align-items: center; gap: 4px; }
+  .item-legend .dot { width: 7px; height: 7px; border-radius: 2px; }
+  .item-list { list-style: none; padding: 0; margin: 0; }
+  .item-list li { padding: 3px 0 3px 12px; position: relative; font-size: 11.5px; line-height: 1.5; border-left: 2px solid #21262d; margin-bottom: 1px; }
+  .item-list li .item-name { font-weight: 600; font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; }
+  .item-list li .item-desc { color: #6e7681; }
+  .item-list li.is-class .item-name { color: #f0883e; }
+  .item-list li.is-class { border-left-color: #f0883e; }
+  .item-list li.is-func .item-name { color: #7ee787; }
+  .item-list li.is-func { border-left-color: #7ee787; }
+  .item-list li.is-named-tuple .item-name { color: #d2a8ff; }
+  .item-list li.is-named-tuple { border-left-color: #d2a8ff; }
+  .item-list li.is-dataclass .item-name { color: #79c0ff; }
+  .item-list li.is-dataclass { border-left-color: #79c0ff; }
+
+  /* Library tags */
+  .lib-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .lib-tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #1c2128; border: 1px solid #30363d; color: #8b949e; font-family: 'SF Mono','Fira Code',monospace; }
+
+  /* Dict panel */
+  #dict { display: none; }
+  #dict.visible { display: block; }
+  #dict table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  #dict th { text-align: left; color: #484f58; font-weight: 500; padding: 4px 6px 4px 0; border-bottom: 1px solid #21262d; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  #dict td { padding: 4px 6px 4px 0; border-bottom: 1px solid #161b22; vertical-align: top; }
+  #dict td:first-child { color: #e6edf3; font-family: 'SF Mono','Fira Code',monospace; font-weight: 600; font-size: 10.5px; white-space: nowrap; }
+  #dict td:last-child { color: #6e7681; }
+
+  /* Group label styling */
+  .group-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>EB-JEPA · Codebase Map</h1>
-  <p>Hover to highlight connections · Click to pin</p>
+  <h1>EB-JEPA · Complete Codebase Map</h1>
+  <p>21 modules · 5 groups · Click any module to explore classes, functions, libraries & math</p>
 </header>
 
 <div id="legend">
   <div class="leg"><div class="leg-dot" style="background:#c9922a"></div>Examples</div>
   <div class="leg"><div class="leg-dot" style="background:#2f81f7"></div>Core</div>
-  <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div>Support</div>
+  <div class="leg"><div class="leg-dot" style="background:#2ea043"></div>Datasets</div>
+  <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div>Infrastructure</div>
+  <div class="leg"><div class="leg-dot" style="background:#f85149"></div>Tests</div>
 </div>
 
 <div id="main">
   <div id="svg-wrap">
-    <svg id="g" viewBox="0 0 900 540"></svg>
+    <svg id="g" viewBox="0 0 1400 720"></svg>
   </div>
-  <div id="info">
-    <span class="placeholder">Hover any file to see what it does.</span>
+  <div id="sidebar">
+    <div id="info">
+      <b>EB-JEPA Codebase</b>
+      <div class="module-summary">Energy-Based Joint Embedding Predictive Architecture.<br><br>
+      <b style="color:#c9922a;font-size:11px">Examples</b> &mdash; 3 training pipelines of increasing complexity, plus a SLURM launcher.<br>
+      <b style="color:#2f81f7;font-size:11px">Core</b> &mdash; The JEPA model, loss functions, network architectures, and planners.<br>
+      <b style="color:#2ea043;font-size:11px">Datasets</b> &mdash; Moving MNIST, trajectory slicing, and the Two Rooms environment.<br>
+      <b style="color:#8b5cf6;font-size:11px">Infrastructure</b> &mdash; Training utilities, schedulers, logging, visualization, decoders.<br>
+      <b style="color:#f85149;font-size:11px">Tests</b> &mdash; Unit and integration tests verifying planning, output shapes, and loss math.<br><br>
+      Click any module to see its classes, functions, libraries, and math concepts.</div>
+    </div>
+    <div id="dict"></div>
   </div>
 </div>
 
 <script>
-// ── Layout constants ────────────────────────────────
-const W = 200, H = 80, RX = 11;
+// ── Dimensions ─────────────────────────────────────
+const W = 180, H = 56, RX = 10;
 const hw = W / 2, hh = H / 2;
 
-// ── Color themes ────────────────────────────────────
+// ── Color themes ───────────────────────────────────
 const T = {
-  example: { bg: '#1e1608', border: '#c9922a', text: '#e8a030', sub: '#8a6020', glow: '#c9922a' },
-  core:    { bg: '#0d1e3a', border: '#2f81f7', text: '#58a6ff', sub: '#1e4a8a', glow: '#2f81f7' },
-  support: { bg: '#160e2e', border: '#8b5cf6', text: '#b08ef0', sub: '#5a3aaa', glow: '#8b5cf6' },
+  example: { bg:'#1e1608', border:'#c9922a', text:'#e8a030', sub:'#8a6020', glow:'#c9922a' },
+  core:    { bg:'#0d1e3a', border:'#2f81f7', text:'#58a6ff', sub:'#1e4a8a', glow:'#2f81f7' },
+  data:    { bg:'#0d2818', border:'#2ea043', text:'#3fb950', sub:'#196c2e', glow:'#2ea043' },
+  infra:   { bg:'#160e2e', border:'#8b5cf6', text:'#b08ef0', sub:'#5a3aaa', glow:'#8b5cf6' },
+  test:    { bg:'#2a1015', border:'#f85149', text:'#ff7b72', sub:'#a3281e', glow:'#f85149' },
 };
 
-// ── Nodes ───────────────────────────────────────────
+// ── Groups (background rects) ──────────────────────
+const groups = [
+  { id:'examples', label:'EXAMPLES',       x:35,  y:25,  w:1330, h:100, color:'#c9922a' },
+  { id:'core',     label:'CORE',           x:35,  y:165, w:1330, h:100, color:'#2f81f7' },
+  { id:'data',     label:'DATASETS',       x:35,  y:310, w:510,  h:210, color:'#2ea043' },
+  { id:'infra',    label:'INFRASTRUCTURE', x:580, y:310, w:785,  h:210, color:'#8b5cf6' },
+  { id:'tests',    label:'TESTS',          x:165, y:565, w:900,  h:100, color:'#f85149' },
+];
+
+// ── Nodes ──────────────────────────────────────────
 const nodes = [
-  { id: 'img',  cx: 155,  cy: 80,  g: 'example', label: 'image_jepa/',      sub: 'No predictor · CIFAR-10',
-    desc: 'The simplest entry point. Trains an encoder + projector using VICReg or SIGReg on CIFAR-10 images — no predictor involved (it\'s a JEA, not a full JEPA). Evaluated with a frozen linear probe. Achieves ~91% accuracy. <b>Read this first.</b>' },
+  // ─── Examples ───
+  { id:'img', cx:185, cy:75, g:'example', label:'image_jepa/', sub:'SSL on CIFAR-10',
+    path:'examples/image_jepa/{main,dataset,eval}.py',
+    desc:'The simplest entry point. Trains ResNet18 or ViT encoder + MLP projector with VICReg or SIGReg on CIFAR-10. No predictor (technically a JEA, not full JEPA). Evaluated with a frozen linear probe (~91% accuracy). <b>Read this first.</b>',
+    items:[
+      {name:'ResNet18',type:'c',desc:'Modified torchvision ResNet18 adapted for 32x32 CIFAR'},
+      {name:'ImageSSL',type:'c',desc:'Backbone + 3-layer MLP projector with BatchNorm'},
+      {name:'LARS',type:'c',desc:'Layer-wise Adaptive Rate Scaling optimizer'},
+      {name:'WarmupCosineScheduler',type:'c',desc:'Linear warmup then cosine decay'},
+      {name:'LinearProbe',type:'c',desc:'Single nn.Linear for frozen-encoder evaluation'},
+      {name:'ImageDataset',type:'c',desc:'Multi-view dataset with augmentation pipeline'},
+      {name:'train_epoch()',type:'f',desc:'One epoch: SSL loss + linear probe cross-entropy'},
+      {name:'run()',type:'f',desc:'Full training pipeline entry point'},
+      {name:'get_train_transforms()',type:'f',desc:'RandomCrop + ColorJitter + Solarize + Flip'},
+      {name:'evaluate_linear_probe()',type:'f',desc:'Val loop: cross-entropy + accuracy'},
+    ],
+    libs:['torch','torchvision','fire','wandb','omegaconf','tqdm'],
+    dict:[
+      {term:'LARS',what:'Layer-wise Adaptive Rate Scaling: lr_layer = eta * ||w|| / (||g|| + ||w||*lambda + eps)'},
+      {term:'VICReg',what:'Variance-Invariance-Covariance Regularization for self-supervised learning'},
+      {term:'SIGReg',what:'Replaces VICReg covariance with a Gaussianity test (BCS)'},
+      {term:'Linear probe',what:'Freeze encoder, train one linear layer on top to measure representation quality'},
+      {term:'AMP',what:'Automatic Mixed Precision: FP16 forward pass + FP32 gradient accumulation via GradScaler'},
+      {term:'JEA',what:'Joint Embedding Architecture: JEPA without a predictor, just encoder + projector'},
+    ],
+  },
+  { id:'vid', cx:510, cy:75, g:'example', label:'video_jepa/', sub:'Future frame prediction',
+    path:'examples/video_jepa/{main,eval}.py',
+    desc:'Adds a predictor. ResNet5 encoder + ResUNet predictor learn to predict future video frame embeddings on Moving MNIST. Training uses parallel unroll; evaluation uses autoregressive unroll. Also trains a pixel decoder and detection head.',
+    items:[
+      {name:'run()',type:'f',desc:'Full pipeline: encoder + predictor + JEPA + decoder + detection'},
+      {name:'validation_loop()',type:'f',desc:'@inference_mode val: recon loss, det AP, wandb videos'},
+      {name:'visualize_videos()',type:'f',desc:'3-row comparison: GT / predicted rollout / detection overlay'},
+      {name:'add_label_to_video()',type:'f',desc:'PIL text overlay on each frame'},
+    ],
+    libs:['torch','fire','omegaconf','einops','PIL','tqdm','wandb'],
+    dict:[
+      {term:'Moving MNIST',what:'Synthetic video: digits bounce around a 64x64 frame'},
+      {term:'ResUNet',what:'U-Net with residual blocks: convolutional predictor for parallel training'},
+      {term:'Parallel unroll',what:'All timesteps at once, GT context refed on the left'},
+      {term:'Autoregressive unroll',what:'Step-by-step, predictions become next input'},
+      {term:'Detection head',what:'Predicts digit locations as binary heatmaps, scored with average precision'},
+    ],
+  },
+  { id:'acv', cx:835, cy:75, g:'example', label:'ac_video_jepa/', sub:'World model + planning',
+    path:'examples/ac_video_jepa/{main,eval}.py',
+    desc:'The most complex example. ImpalaEncoder + GRU predictor form an action-conditioned world model in the Two Rooms environment. After training, CEM or MPPI planners search for action sequences that reach a goal embedding in latent space.',
+    items:[
+      {name:'run()',type:'f',desc:'Full AC-JEPA training: encoder + predictor + regularizer + probe'},
+      {name:'launch_plan_eval()',type:'f',desc:'@no_grad planning evaluation wrapper'},
+      {name:'launch_unroll_eval()',type:'f',desc:'@no_grad multi-step prediction evaluation'},
+    ],
+    libs:['torch','fire','wandb','yaml','omegaconf','tqdm'],
+    dict:[
+      {term:'World model',what:'Learned dynamics: predicts next state given current state + action'},
+      {term:'Two Rooms',what:'Grid environment: two rooms connected by a door, agent navigates to goal'},
+      {term:'Action-conditioned',what:'Predictions depend on both state and the action taken'},
+      {term:'GRU predictor',what:'Single-step recurrent predictor for autoregressive unrolling'},
+      {term:'XY Probe',what:'MLPXYHead: frozen encoder + trainable MLP to decode (x,y) location from embeddings'},
+    ],
+  },
+  { id:'launch', cx:1175, cy:75, g:'example', label:'launch_sbatch.py', sub:'SLURM job launcher',
+    path:'examples/launch_sbatch.py',
+    desc:'Launches experiments on SLURM clusters via submitit. Supports single jobs and full hyperparameter sweeps with cartesian product grid search. Copies code to isolated directory, optionally registers with W&B sweep.',
+    items:[
+      {name:'make_executor()',type:'f',desc:'Create submitit AutoExecutor with SLURM defaults'},
+      {name:'launch_sweep()',type:'f',desc:'Parameter sweep via SLURM array job'},
+      {name:'launch_job()',type:'f',desc:'Single SLURM job submission'},
+      {name:'run_experiment()',type:'f',desc:'Dynamic import and call of example run()'},
+      {name:'generate_param_combinations()',type:'f',desc:'Cartesian product of param grid'},
+      {name:'copy_code_folder()',type:'f',desc:'Isolate code snapshot for reproducibility'},
+    ],
+    libs:['submitit','wandb','argparse','itertools'],
+    dict:[
+      {term:'submitit',what:'Python library for submitting jobs to SLURM cluster schedulers'},
+      {term:'SLURM',what:'Simple Linux Utility for Resource Management: HPC job scheduler'},
+      {term:'Sweep',what:'Hyperparameter search: run many experiments varying specific settings'},
+    ],
+  },
 
-  { id: 'vid',  cx: 450,  cy: 80,  g: 'example', label: 'video_jepa/',      sub: 'Future frames · Moving MNIST',
-    desc: 'Adds a predictor. A ResNet5 encoder + ResUNet predictor learn to predict future video frame embeddings on Moving MNIST. Training uses parallel unroll; evaluation uses autoregressive unroll. The cleanest example at ~278 lines.' },
+  // ─── Core ───
+  { id:'loss', cx:220, cy:215, g:'core', label:'losses.py', sub:'VICReg / SIGReg / IDM',
+    path:'eb_jepa/losses.py',
+    desc:'All loss functions. <b>Prediction losses</b> measure how well the predictor matches encoder targets (MSE). <b>Regularizers</b> prevent representation collapse by encouraging variance and decorrelation. Read this before jepa.py.',
+    items:[
+      {name:'sq_loss()',type:'f',desc:'MSE wrapper: F.mse_loss(x, y)'},
+      {name:'SquareLossSeq',type:'c',desc:'Sequence MSE on [B,C,T,H,W] with optional projection'},
+      {name:'HingeStdLoss',type:'c',desc:'max(0, margin - std(x)) per feature: prevents variance collapse'},
+      {name:'CovarianceLoss',type:'c',desc:'Off-diagonal covariance penalty: decorrelates features'},
+      {name:'VCLoss',type:'c',desc:'Variance + Covariance combined (no invariance term)'},
+      {name:'TemporalSimilarityLoss',type:'c',desc:'Penalizes large jumps between consecutive timesteps'},
+      {name:'InverseDynamicsLoss',type:'c',desc:'MSE between predicted and true actions via IDM'},
+      {name:'VC_IDM_Sim_Regularizer',type:'c',desc:'Composite: Std + Cov + TemporalSim + IDM with per-term weights'},
+      {name:'VICRegLoss',type:'c',desc:'Full VICReg: invariance(MSE) + variance(hinge) + covariance'},
+      {name:'BCS',type:'c',desc:'Batched Characteristic Slicing: SIGReg Gaussianity test'},
+      {name:'epps_pulley()',type:'f',desc:'Empirical characteristic function vs Gaussian CF test statistic'},
+    ],
+    libs:['torch','torch.distributed'],
+    dict:[
+      {term:'MSE',what:'Mean Squared Error: average squared difference between prediction and target'},
+      {term:'VICReg',what:'L = L_inv + lambda_s * L_std + lambda_c * L_cov (Bardes et al. 2022)'},
+      {term:'Hinge Std',what:'L_std = mean(max(0, margin - sqrt(var(x_d) + eps))) over each feature d'},
+      {term:'Covariance Loss',what:'L_cov = (1/(D(D-1))) * sum_{i!=j} C_{ij}^2, where C = X^T X / (N-1)'},
+      {term:'BCS / SIGReg',what:'Random Gaussian projections + Epps-Pulley test: encourages feature normality'},
+      {term:'Epps-Pulley',what:'T = integral phi(t) |ECF(t) - exp(-t^2/2)|^2 dt (empirical vs Gaussian CF)'},
+      {term:'IDM',what:'Inverse Dynamics Model: predicts action from (state_t, state_{t+1}) transitions'},
+      {term:'ECF',what:'Empirical Characteristic Function: sample-based Fourier transform of the distribution'},
+    ],
+  },
+  { id:'jepa', cx:510, cy:215, g:'core', label:'jepa.py', sub:'Central JEPA hub',
+    path:'eb_jepa/jepa.py',
+    desc:'The heart of the codebase. Defines <b>JEPA</b> (trainable), <b>JEPAbase</b> (inference only), and <b>JEPAProbe</b> (frozen encoder + head). The <b>unroll()</b> method handles both parallel training and autoregressive planning in one unified function.',
+    items:[
+      {name:'JEPAbase',type:'c',desc:'Base: encoder + action_encoder + predictor; inference only (no loss)'},
+      {name:'JEPA',type:'c',desc:'Trainable subclass: adds regularizer + prediction cost + unroll()'},
+      {name:'JEPA.unroll()',type:'f',desc:'Unified multi-step: "parallel" refeeds GT, "autoregressive" appends preds'},
+      {name:'JEPA.infer()',type:'f',desc:'@no_grad single-step parallel inference shortcut'},
+      {name:'JEPAProbe',type:'c',desc:'Frozen JEPA encoder + trainable head for evaluation'},
+      {name:'JEPAProbe.apply_head()',type:'f',desc:'@no_grad apply head to already-encoded embeddings'},
+    ],
+    libs:['torch'],
+    dict:[
+      {term:'JEPA',what:'Joint Embedding Predictive Architecture: predict embeddings, not pixels'},
+      {term:'JEA',what:'JEPA without predictor: just encoder + projector (e.g. image_jepa example)'},
+      {term:'Parallel mode',what:'All timesteps at once; GT context refed on the left at each iteration'},
+      {term:'Autoregressive',what:'Step-by-step prediction; each output appended and used as next input'},
+      {term:'unroll()',what:'Returns (total_loss, reg_loss, reg_unweighted, reg_dict, pred_loss) 5-tuple'},
+      {term:'Linear probe',what:'Freeze encoder, train only a linear head on top to measure repr quality'},
+    ],
+  },
+  { id:'arch', cx:800, cy:215, g:'core', label:'architectures.py', sub:'Encoders & predictors',
+    path:'eb_jepa/architectures.py',
+    desc:'All neural network building blocks. <b>Encoders</b> map observations to embeddings. <b>Predictors</b> map embeddings forward in time. Also includes a projector MLP and inverse dynamics model.',
+    items:[
+      {name:'ResNet5',type:'c',desc:'Lightweight 5-layer ResNet (2 residual blocks): video_jepa encoder'},
+      {name:'ImpalaEncoder',type:'c',desc:'IMPALA-style deep stacked ResNet: ac_video_jepa encoder'},
+      {name:'ResUNet',type:'c',desc:'U-Net with residual blocks: convolutional predictor (parallel)'},
+      {name:'RNNPredictor',type:'c',desc:'GRU-based single-step predictor (autoregressive); is_rnn=True'},
+      {name:'SimplePredictor',type:'c',desc:'Concatenates state+action channels, then feeds predictor'},
+      {name:'StateOnlyPredictor',type:'c',desc:'Like SimplePredictor but ignores actions; uses state pairs'},
+      {name:'Projector',type:'c',desc:'MLP from spec string "256-512-128": maps to VICReg/SIGReg space'},
+      {name:'InverseDynamicsModel',type:'c',desc:'MLP: predicts action from (state_t, state_{t+1}) pairs'},
+      {name:'ResidualBlock',type:'c',desc:'Conv+BN+ReLU + skip connection: building block for ResNet5 & ResUNet'},
+      {name:'ResnetStack',type:'c',desc:'Initial conv + maxpool + N ResnetBlocks: building block for Impala'},
+      {name:'DetHead',type:'c',desc:'Detection head: adaptive pool + sigmoid, scored with avg precision'},
+    ],
+    libs:['torch','sklearn'],
+    dict:[
+      {term:'ResNet',what:'Residual Network: CNN with skip connections, out += shortcut(x)'},
+      {term:'U-Net',what:'Encoder-decoder with skip connections at each scale: preserves spatial detail'},
+      {term:'GRU',what:'Gated Recurrent Unit: lightweight RNN with reset and update gates, no cell state'},
+      {term:'IMPALA',what:'Deep RL encoder design: stacked ResNet blocks with increasing channels'},
+      {term:'MLP',what:'Multi-Layer Perceptron: Linear -> Activation -> Linear feedforward network'},
+      {term:'ViT',what:'Vision Transformer: transformer applied to image patches (used in image_jepa)'},
+      {term:'is_rnn flag',what:'Distinguishes RNN (single-step) from Conv (multi-step) predictors in unroll()'},
+      {term:'context_length',what:'Number of past frames the predictor needs as input window'},
+    ],
+  },
+  { id:'plan', cx:1090, cy:215, g:'core', label:'planning.py', sub:'CEM / MPPI planners',
+    path:'eb_jepa/planning.py',
+    desc:'Model-predictive planning in latent space. A goal-conditioned agent encodes the current observation, then CEM or MPPI search for action sequences that minimize distance to a target embedding. Used by ac_video_jepa.',
+    items:[
+      {name:'GCAgent',type:'c',desc:'Goal-conditioned agent: encode goal, call planner, step actions'},
+      {name:'ReprTargetDistMPCObjective',type:'c',desc:'Objective: MSE between predicted and goal embedding'},
+      {name:'PlanningResult',type:'n',desc:'NamedTuple: actions, losses, elite_losses_mean/std, info'},
+      {name:'Planner',type:'c',desc:'Abstract base: cost_function() = unroll + objective'},
+      {name:'CEMPlanner',type:'c',desc:'Cross-Entropy Method: sample -> evaluate -> refit to top-K elites'},
+      {name:'MPPIPlanner',type:'c',desc:'MPPI: importance-weighted sampling for smoother plans'},
+      {name:'main_eval()',type:'f',desc:'Full episode loop: run agent, log success rate & distances'},
+      {name:'main_unroll_eval()',type:'f',desc:'Compare multi-step predictions to ground truth trajectories'},
+    ],
+    libs:['torch','numpy','pandas','einops','omegaconf','tqdm'],
+    dict:[
+      {term:'CEM',what:'Cross-Entropy Method: sample actions, evaluate, refit Gaussian to best (elites)'},
+      {term:'MPPI',what:'Model Predictive Path Integral: score = exp(T*(min_cost - cost)), weighted mean/std update'},
+      {term:'MPC',what:'Model Predictive Control: plan actions by simulating model forward and optimizing'},
+      {term:'Goal-conditioned',what:'Agent plans toward a target embedding, not a fixed reward signal'},
+      {term:'Elites',what:'Top-K lowest-cost action samples selected in each CEM/MPPI iteration'},
+      {term:'Action norm clip',what:'actions *= min(max_norm, ||a||) / (||a|| + eps): bounds action magnitude'},
+    ],
+  },
 
-  { id: 'acv',  cx: 745,  cy: 80,  g: 'example', label: 'ac_video_jepa/',   sub: 'World model + planning',
-    desc: 'The most complex example. An Impala encoder + GRU predictor form an action-conditioned world model in the Two Rooms environment. After training, CEM or MPPI planners search for action sequences that reach a goal embedding in latent space.' },
+  // ─── Datasets ───
+  { id:'mnist', cx:155, cy:380, g:'data', label:'moving_mnist.py', sub:'Bouncing digits dataset',
+    path:'eb_jepa/datasets/moving_mnist.py',
+    desc:'Auto-downloading Moving MNIST dataset: digits bounce around a 64x64 frame. Used by video_jepa. Includes a detection variant (MovingMNISTDet) that computes digit location heatmaps via OpenCV contour detection.',
+    items:[
+      {name:'MovingMNIST',type:'c',desc:'Dataset: loads .npy, splits 9000/1000, temporal reshape (2x sequences)'},
+      {name:'MovingMNISTDet',type:'c',desc:'Extends with digit_location: bounding box centroid -> coarse heatmap'},
+      {name:'load_or_download()',type:'f',desc:'Download mnist_test_seq.npy from Toronto CS if not present'},
+      {name:'return_bbox()',type:'f',desc:'OpenCV contour detection -> bounding boxes (x_min,y_min,x_max,y_max)'},
+    ],
+    libs:['torch','numpy','urllib','cv2'],
+    dict:[
+      {term:'Temporal reshape',what:'data.shape[0]*2, data.shape[1]//2: doubles sequences, halves length'},
+      {term:'Digit heatmap',what:'Bounding box centroid mapped to coarse grid (map_size x map_size binary map)'},
+    ],
+  },
+  { id:'traj', cx:400, cy:380, g:'data', label:'traj_dset.py', sub:'Trajectory slicing',
+    path:'eb_jepa/datasets/traj_dset.py',
+    desc:'Generic trajectory dataset utilities. Handles train/val splitting of trajectory data, and sliding-window slicing with configurable frameskip and action aggregation (concat or sum). Used by Two Rooms datasets.',
+    items:[
+      {name:'TrajDataset',type:'c',desc:'Abstract base: get_seq_length(idx) required'},
+      {name:'TrajSubset',type:'c',desc:'Subset with delegated attributes via __getattr__'},
+      {name:'TrajSlicerDataset',type:'c',desc:'All valid (traj_idx, start, end) windows + random permutation'},
+      {name:'get_train_val_sliced()',type:'f',desc:'Full pipeline: split -> TrajSlicerDataset for train and val'},
+      {name:'random_split_traj()',type:'f',desc:'Random train/val split returning TrajSubset list'},
+    ],
+    libs:['torch','einops'],
+    dict:[
+      {term:'Frameskip',what:'Sample every N-th frame: (i, start, start + num_frames * frameskip)'},
+      {term:'Action aggregation',what:'concat: rearrange "(n f) d -> n (f d)"; sum: .sum(dim=1) over skip'},
+      {term:'Sliding window',what:'Enumerate all valid contiguous windows across all trajectories'},
+    ],
+  },
+  { id:'troom', cx:155, cy:485, g:'data', label:'two_rooms/', sub:'Grid navigation environment',
+    path:'eb_jepa/datasets/two_rooms/{dot_dataset,wall_dataset,env,normalizer,utils}.py',
+    desc:'The Two Rooms environment: a dot navigates a grid with two rooms connected by a door. Includes dataset generation (DotDataset, WallDataset), a Gymnasium environment (DotWall), normalization, and wall collision utilities.',
+    items:[
+      {name:'DotDataset',type:'c',desc:'Base: generates dot trajectories with Von Mises angle noise'},
+      {name:'WallDataset',type:'c',desc:'Extends DotDataset with walls, doors, expert cross-wall paths'},
+      {name:'DotWall',type:'c',desc:'Gymnasium Env: reset/step/render for planning evaluation'},
+      {name:'Normalizer',type:'c',desc:'Min-max then z-score normalization with hardcoded stats'},
+      {name:'DotDatasetConfig',type:'d',desc:'@dataclass: size, batch_size, dot_std, action_noise, n_steps, ...'},
+      {name:'WallDatasetConfig',type:'d',desc:'@dataclass extends DotDatasetConfig: wall/door params, cross_wall_rate'},
+      {name:'Sample',type:'n',desc:'NamedTuple: states [T,1,28,28], locations [T,2], actions [T,2], bias'},
+      {name:'WallSample',type:'n',desc:'NamedTuple: states, actions, locations, wall_x, door_y'},
+      {name:'check_wall_intersect()',type:'f',desc:'Line-wall collision detection with noise tolerance'},
+      {name:'generate_wall_layouts()',type:'f',desc:'All valid (wall_x, door_y) for train/val splits'},
+    ],
+    libs:['torch','numpy','scipy','gymnasium'],
+    dict:[
+      {term:'Von Mises',what:'Circular distribution for angle noise: theta_{t+1} = theta_t + VonMises(0, 1/sigma)'},
+      {term:'Truncated normal',what:'Normal distribution clipped to [lower, upper] bounds for action magnitudes'},
+      {term:'Gaussian dot',what:'img = exp(-(||c - loc||^2) / (2*sigma^2)) * 255: soft dot rendering'},
+      {term:'Cross-wall rate',what:'Fraction of trajectories that cross the wall through the door'},
+      {term:'Expert trajectory',what:'3-segment path: A -> left-of-door -> through-door -> B'},
+      {term:'Wall intersection',what:'Parametric line-line intersection: y = a*x + b, solve for crossing'},
+    ],
+  },
+  { id:'dutil', cx:400, cy:485, g:'data', label:'datasets/utils.py', sub:'Data loading helpers',
+    path:'eb_jepa/datasets/utils.py',
+    desc:'Convenience functions to load environment configs from YAML and create WallDataset train/val DataLoaders. The bridge between training scripts and the Two Rooms dataset.',
+    items:[
+      {name:'init_data()',type:'f',desc:'Create WallDataset train+val DataLoaders from config dict'},
+      {name:'load_env_data_config()',type:'f',desc:'Load YAML data config with optional dict overrides'},
+    ],
+    libs:['torch','yaml'],
+    dict:[],
+  },
 
-  { id: 'tu',   cx: 110,  cy: 295, g: 'support', label: 'training_utils.py', sub: 'LR · checkpoints · W&B',
-    desc: 'Shared training infrastructure used by all three examples. Handles learning-rate scheduling, gradient clipping, checkpoint saving and loading, and Weights & Biases logging. You rarely need to touch this.' },
+  // ─── Infrastructure ───
+  { id:'tu', cx:700, cy:380, g:'infra', label:'training_utils.py', sub:'Checkpoints / W&B / seeds',
+    path:'eb_jepa/training_utils.py',
+    desc:'Shared training infrastructure used by all three examples. Handles device setup, reproducibility seeding, W&B logging, checkpoint save/load, YAML config management, and experiment directory conventions.',
+    items:[
+      {name:'setup_device()',type:'f',desc:'Auto-detect CUDA/CPU, return torch.device'},
+      {name:'setup_seed()',type:'f',desc:'Seed Python random, NumPy, PyTorch + CUDA'},
+      {name:'setup_wandb()',type:'f',desc:'W&B init with safe resume; handles sweep registration'},
+      {name:'save_checkpoint()',type:'f',desc:'Serialize model + optimizer + scheduler + scaler + extras'},
+      {name:'load_checkpoint()',type:'f',desc:'Restore state; handles compiled-model key prefixes'},
+      {name:'load_config()',type:'f',desc:'YAML + dot-notation CLI overrides via OmegaConf'},
+      {name:'get_unified_experiment_dir()',type:'f',desc:'Path: base/example/sweep/exp_seedN'},
+      {name:'get_exp_name()',type:'f',desc:'Encode key hyperparameters into short experiment name'},
+      {name:'log_epoch()',type:'f',desc:'Pretty-print epoch summary with metrics and timing'},
+    ],
+    libs:['torch','numpy','omegaconf','wandb'],
+    dict:[
+      {term:'W&B',what:'Weights & Biases: experiment tracking platform for metrics, configs, artifacts'},
+      {term:'Checkpoint',what:'Snapshot of model weights + optimizer state saved to disk for resume'},
+      {term:'GradScaler',what:'Scales gradients for mixed-precision (FP16) training to avoid underflow'},
+    ],
+  },
+  { id:'sched', cx:940, cy:380, g:'infra', label:'schedulers.py', sub:'Cosine + warmup LR',
+    path:'eb_jepa/schedulers.py',
+    desc:'Learning rate scheduler: linear warmup followed by cosine annealing. Used by ac_video_jepa for stable training of the ImpalaEncoder + GRU predictor.',
+    items:[
+      {name:'CosineWithWarmup',type:'c',desc:'SequentialLR([LinearLR, CosineAnnealingLR]) wrapper'},
+    ],
+    libs:['torch'],
+    dict:[
+      {term:'Linear warmup',what:'LR ramps from 1e-8 * base_lr to base_lr over warmup_ratio * total_steps'},
+      {term:'Cosine annealing',what:'LR decays from base_lr to min_lr following cosine curve over remaining steps'},
+    ],
+  },
+  { id:'nn', cx:1180, cy:380, g:'infra', label:'nn_utils.py', sub:'Weight init / temporal batch',
+    path:'eb_jepa/nn_utils.py',
+    desc:'Two low-level utilities used by architectures.py and image_decoder.py. TemporalBatchMixin handles 4D/5D input transparently; init_module_weights applies truncated normal initialization.',
+    items:[
+      {name:'TemporalBatchMixin',type:'c',desc:'Mixin: folds (B,C,T,H,W) -> (B*T,C,H,W), calls _forward, unfolds'},
+      {name:'init_module_weights()',type:'f',desc:'trunc_normal_ for Conv/Linear (std=0.02); zeros for biases'},
+    ],
+    libs:['torch','einops'],
+    dict:[
+      {term:'Temporal batch',what:'rearrange "b c t h w -> (b t) c h w": process all frames as one batch'},
+      {term:'Truncated normal',what:'Normal distribution clipped at 2*std: avoids extreme weight initialization'},
+    ],
+  },
+  { id:'log', cx:700, cy:485, g:'infra', label:'logging.py', sub:'Logger configuration',
+    path:'eb_jepa/logging.py',
+    desc:'Minimal logging setup. Configures Python stdlib logging to stdout at INFO level with a structured format. Used throughout the codebase via get_logger().',
+    items:[
+      {name:'get_logger()',type:'f',desc:'Configure basicConfig to stdout, return named logger'},
+    ],
+    libs:['logging (stdlib)'],
+    dict:[],
+  },
+  { id:'vis', cx:940, cy:485, g:'infra', label:'vis_utils.py', sub:'GIFs / plots / analysis',
+    path:'eb_jepa/vis_utils.py',
+    desc:'Visualization toolkit for the planning pipeline. Converts tensors to frames, saves GIFs and PDF unrolls, creates side-by-side comparisons, plots embedding distances, and renders CEM/MPPI optimization curves.',
+    items:[
+      {name:'save_gif()',type:'f',desc:'(T,C,H,W) tensor -> animated GIF + PDF frame unroll'},
+      {name:'save_gif_as_pdf_unroll()',type:'f',desc:'Multi-row PDF with horizontal frame layout'},
+      {name:'create_comparison_gif()',type:'f',desc:'Side-by-side: GT vs predicted-from-true vs predicted-from-random'},
+      {name:'analyze_distances()',type:'f',desc:'Full analysis: coord distances, embed distances, objective values'},
+      {name:'plot_losses()',type:'f',desc:'CEM/MPPI optimization curves per timestep with elite bounds'},
+      {name:'prepare_frame()',type:'f',desc:'Pipeline: to_numpy -> to_hwc -> to_uint8 -> expand_channels'},
+      {name:'show_images()',type:'f',desc:'Grid display of (B,C,H,W) tensor with matplotlib'},
+    ],
+    libs:['torch','numpy','cv2','imageio','matplotlib','seaborn'],
+    dict:[
+      {term:'PDF unroll',what:'Horizontal strip of selected frames: shows trajectory as static image'},
+    ],
+  },
+  { id:'dec', cx:1180, cy:485, g:'infra', label:'decoders', sub:'State & image decoders',
+    path:'eb_jepa/{state_decoder,image_decoder}.py',
+    desc:'Two small decoder modules. <b>MLPXYHead</b> decodes (x,y) location from embeddings (used by ac_video_jepa probe). <b>ImageDecoder</b> reconstructs pixel frames from embeddings (used by video_jepa).',
+    items:[
+      {name:'MLPXYHead',type:'c',desc:'MLP: flatten spatial dims -> 512 -> ReLU -> 2. Output: [B,2,T]'},
+      {name:'ImageDecoder',type:'c',desc:'2x Conv2d with ReLU: [B,C,H,W] -> [B,out_dim,H,W]. Uses TemporalBatchMixin'},
+    ],
+    libs:['torch'],
+    dict:[
+      {term:'State decoder',what:'Maps latent embedding back to (x,y) position: measures location awareness'},
+      {term:'Image decoder',what:'Maps latent embedding back to pixel space: measures visual information retained'},
+    ],
+  },
 
-  { id: 'jepa', cx: 450,  cy: 295, g: 'core',    label: 'jepa.py',           sub: 'The central hub',
-    desc: 'The heart of the codebase. Defines <b>JEPA</b> (trainable), <b>JEPAbase</b> (inference only), and <b>JEPAProbe</b> (frozen encoder + head). The <b>unroll()</b> method handles both parallel training and autoregressive planning in one unified function.' },
-
-  { id: 'plan', cx: 745,  cy: 295, g: 'core',    label: 'planning.py',       sub: 'CEM · MPPI',
-    desc: 'Two model-predictive planning algorithms. <b>CEM</b>: iteratively sample action sequences → evaluate in latent space → refit a Gaussian to the top-K. <b>MPPI</b>: importance-weighted sampling for smoother plans. Both use jepa.py\'s world model.' },
-
-  { id: 'loss', cx: 285,  cy: 475, g: 'core',    label: 'losses.py',         sub: 'VICReg · SIGReg · IDM · Cov',
-    desc: 'All loss functions. Prediction: <b>MSE</b>. Anti-collapse: <b>HingeStdLoss</b> (variance), <b>CovarianceLoss</b> (decorrelation), <b>TemporalSimilarityLoss</b>, <b>InverseDynamicsLoss</b>, <b>VICRegLoss</b>, <b>VC_IDM_Sim_Regularizer</b>, and <b>BCS</b> (SIGReg). Read this before jepa.py.' },
-
-  { id: 'arch', cx: 615,  cy: 475, g: 'core',    label: 'architectures.py',  sub: 'ResNet5 · Impala · ViT · GRU',
-    desc: 'All neural network building blocks. Encoders: <b>ResNet5</b> (video), <b>Impala</b> (ac_video), <b>ResNet18 + ViT</b> (image). Predictors: <b>ResUNet</b> (convolutional, parallel) and <b>RNNPredictor/GRU</b> (autoregressive). Also: projector MLP and IDM module.' },
+  // ─── Tests ───
+  { id:'tplan', cx:310, cy:615, g:'test', label:'planning_test.py', sub:'Planner unit tests',
+    path:'tests/planning_test.py',
+    desc:'Unit and integration tests for the planning module. Tests CEM planner initialization, planning output shapes, GCAgent behavior (with mocks), and a full end-to-end integration test with a DummyModel.',
+    items:[
+      {name:'test_cem_planner()',type:'f',desc:'CEM init, planning, steps_left, cost_function'},
+      {name:'test_repr_target_dist_objective()',type:'f',desc:'Objective output shape and correctness'},
+      {name:'test_gc_agent()',type:'f',desc:'@patch CEMPlanner: agent init, set_goal, act, unroll'},
+      {name:'test_main_eval()',type:'f',desc:'@patch GCAgent: full main_eval with mocked env'},
+      {name:'test_planning_integration()',type:'f',desc:'End-to-end: DummyModel + CEMPlanner + GCAgent episode'},
+    ],
+    libs:['torch','numpy','gymnasium','unittest.mock'],
+    dict:[],
+  },
+  { id:'tjout', cx:615, cy:615, g:'test', label:'test_outputs.py', sub:'JEPA output shapes',
+    path:'tests/test_jepa_output_formats.py',
+    desc:'Verifies JEPA output tensor shapes and formats for both parallel and autoregressive modes. Tests return_all_steps, compute_loss flags, and that RNN and Conv predictors produce correct dimensions.',
+    items:[
+      {name:'create_video_jepa_model()',type:'f',desc:'Fixture: ResNet5 + ResUNet + VCLoss'},
+      {name:'create_ac_video_jepa_model()',type:'f',desc:'Fixture: ImpalaEncoder + RNNPredictor + VC_IDM_Sim'},
+      {name:'test_unroll_parallel_mode_output_format()',type:'f',desc:'List of nsteps tensors when return_all_steps=True'},
+      {name:'test_unroll_autoregressive_mode_shapes()',type:'f',desc:'[B,D,1+nsteps,1,1] for RNN predictor'},
+      {name:'test_unroll_autoregressive_with_loss()',type:'f',desc:'5-tuple + expected VC_IDM_Sim dict keys'},
+      {name:'test_unroll_return_all_steps_format()',type:'f',desc:'Growing time dimension in autoregressive'},
+    ],
+    libs:['torch'],
+    dict:[],
+  },
+  { id:'tloss', cx:920, cy:615, g:'test', label:'test_loss_equiv.py', sub:'Loss math verification',
+    path:'tests/test_loss_equivalences.py',
+    desc:'Proves mathematical equivalences between loss implementations via pytest. Verifies that HingeStdLoss matches VICReg\'s std, CovarianceLoss matches VICReg\'s cov, and VICRegLoss correctly decomposes into its components.',
+    items:[
+      {name:'TestStdLossEquivalence',type:'c',desc:'VICReg std == HingeStdLoss; centering before var is redundant'},
+      {name:'TestCovLossEquivalence',type:'c',desc:'VICReg cov == CovarianceLoss: ||C||_F^2 - ||diag(C)||^2'},
+      {name:'TestFullLossEquivalence',type:'c',desc:'VICReg = MSE + lambda_s*(Hinge+Hinge) + lambda_c*(Cov+Cov)'},
+      {name:'TestVCLoss',type:'c',desc:'Output structure, projector support, coefficient weighting'},
+      {name:'TestVICRegLossRegression',type:'c',desc:'Refactored implementation matches original exactly'},
+    ],
+    libs:['torch','pytest'],
+    dict:[
+      {term:'Proven: var centering',what:'Centering before torch.var() is redundant: variance is translation-invariant'},
+      {term:'Proven: HingeStd',what:'HingeStdLoss == VICReg std computation (same 1e-4 epsilon, same formula)'},
+      {term:'Proven: CovLoss',what:'CovarianceLoss == VICReg cov: (||C||_F^2 - ||diag(C)||^2) / (D^2 - D)'},
+    ],
+  },
 ];
 
-// ── Edges ───────────────────────────────────────────
+// ── Edges (import dependencies) ────────────────────
 const edges = [
-  { f: 'img',  t: 'jepa' },
-  { f: 'vid',  t: 'jepa' },
-  { f: 'acv',  t: 'jepa' },
-  { f: 'acv',  t: 'plan' },
-  { f: 'plan', t: 'jepa' },
-  { f: 'jepa', t: 'loss' },
-  { f: 'jepa', t: 'arch' },
-  { f: 'img',  t: 'tu'   },
-  { f: 'vid',  t: 'tu'   },
-  { f: 'acv',  t: 'tu'   },
+  // Examples -> Core
+  {f:'img',t:'loss'},
+  {f:'vid',t:'jepa'}, {f:'vid',t:'loss'}, {f:'vid',t:'arch'},
+  {f:'acv',t:'jepa'}, {f:'acv',t:'loss'}, {f:'acv',t:'arch'}, {f:'acv',t:'plan'},
+  // Core -> Core
+  {f:'plan',t:'jepa'},
+  // Examples -> Datasets
+  {f:'vid',t:'mnist'},
+  {f:'acv',t:'dutil'},
+  // Examples -> Infrastructure
+  {f:'img',t:'tu'}, {f:'vid',t:'tu'}, {f:'acv',t:'tu'}, {f:'launch',t:'tu'},
+  {f:'acv',t:'sched'},
+  {f:'vid',t:'dec'}, {f:'acv',t:'dec'},
+  // Core -> Infrastructure
+  {f:'plan',t:'vis'},
+  {f:'arch',t:'nn'}, {f:'dec',t:'nn'},
+  // Datasets -> Datasets
+  {f:'dutil',t:'troom'},
+  // Tests -> Core
+  {f:'tplan',t:'plan'}, {f:'tjout',t:'jepa'}, {f:'tloss',t:'loss'},
 ];
 
-// ── Build maps ──────────────────────────────────────
+// ── Build maps ─────────────────────────────────────
 const nMap = {};
 nodes.forEach(n => nMap[n.id] = n);
-
 const nbr = {}, eByN = {};
 nodes.forEach(n => { nbr[n.id] = new Set(); eByN[n.id] = []; });
 edges.forEach((e, i) => {
@@ -193,156 +559,195 @@ edges.forEach((e, i) => {
   eByN[e.f].push(i); eByN[e.t].push(i);
 });
 
-// ── Geometry ────────────────────────────────────────
+// ── Geometry ───────────────────────────────────────
 function borderPt(n, tx, ty) {
   const dx = tx - n.cx, dy = ty - n.cy;
-  if (!dx && !dy) return { x: n.cx, y: n.cy };
-  const len = Math.hypot(dx, dy);
-  const nx = dx / len, ny = dy / len;
-  const tX = Math.abs(nx) > 1e-9 ? hw / Math.abs(nx) : Infinity;
-  const tY = Math.abs(ny) > 1e-9 ? hh / Math.abs(ny) : Infinity;
+  if (!dx && !dy) return {x:n.cx, y:n.cy};
+  const len = Math.hypot(dx, dy), nx = dx/len, ny = dy/len;
+  const tX = Math.abs(nx)>1e-9 ? hw/Math.abs(nx) : Infinity;
+  const tY = Math.abs(ny)>1e-9 ? hh/Math.abs(ny) : Infinity;
   const t = Math.min(tX, tY);
-  return { x: n.cx + nx * t, y: n.cy + ny * t };
+  return {x:n.cx+nx*t, y:n.cy+ny*t};
 }
-
-function curvePath(x1, y1, x2, y2) {
-  const adx = Math.abs(x2 - x1), ady = Math.abs(y2 - y1);
-  let c1x, c1y, c2x, c2y;
+function curvePath(x1,y1,x2,y2) {
+  const adx=Math.abs(x2-x1), ady=Math.abs(y2-y1);
+  let c1x,c1y,c2x,c2y;
   if (ady >= adx) {
-    const o = ady * 0.42;
-    c1x = x1; c1y = y1 + Math.sign(y2 - y1) * o;
-    c2x = x2; c2y = y2 - Math.sign(y2 - y1) * o;
+    const o=ady*0.4; c1x=x1; c1y=y1+Math.sign(y2-y1)*o; c2x=x2; c2y=y2-Math.sign(y2-y1)*o;
   } else {
-    const o = adx * 0.42;
-    c1x = x1 + Math.sign(x2 - x1) * o; c1y = y1;
-    c2x = x2 - Math.sign(x2 - x1) * o; c2y = y2;
+    const o=adx*0.4; c1x=x1+Math.sign(x2-x1)*o; c1y=y1; c2x=x2-Math.sign(x2-x1)*o; c2y=y2;
   }
   return `M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
 }
 
-// ── SVG helpers ─────────────────────────────────────
+// ── SVG helpers ────────────────────────────────────
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('g');
-
 function el(tag, attrs, parent) {
   const e = document.createElementNS(SVG_NS, tag);
-  Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+  Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
   if (parent) parent.appendChild(e);
   return e;
 }
 
-// ── Defs: arrowhead markers ──────────────────────────
+// ── Defs ───────────────────────────────────────────
 const defs = el('defs', {}, svg);
 function mkMarker(id, color) {
-  const m = el('marker', { id, markerWidth: 8, markerHeight: 8, refX: 7, refY: 3, orient: 'auto' }, defs);
-  el('path', { d: 'M0,0 L0,6 L8,3 z', fill: color }, m);
+  const m = el('marker', {id, markerWidth:8, markerHeight:8, refX:7, refY:3, orient:'auto'}, defs);
+  el('path', {d:'M0,0 L0,6 L8,3 z', fill:color}, m);
 }
-mkMarker('ar',  '#2d3440');
+mkMarker('ar','#2d3440');
 mkMarker('ar-h','#58a6ff');
 
-// ── Draw edges ───────────────────────────────────────
-const edgeEls = edges.map((e, i) => {
-  const fn = nMap[e.f], tn = nMap[e.t];
-  const s = borderPt(fn, tn.cx, tn.cy);
-  const t = borderPt(tn, fn.cx, fn.cy);
-  const g = el('g', { class: 'edge' }, svg);
-  const p = el('path', {
-    d: curvePath(s.x, s.y, t.x, t.y),
-    fill: 'none', stroke: '#2d3440',
-    'stroke-width': 1.5,
-    'marker-end': 'url(#ar)',
-  }, g);
-  return { g, p };
+// ── Draw group backgrounds ─────────────────────────
+groups.forEach(grp => {
+  el('rect', {
+    x:grp.x, y:grp.y, width:grp.w, height:grp.h, rx:12,
+    fill:grp.color, opacity:0.04, stroke:grp.color, 'stroke-opacity':0.12, 'stroke-width':1
+  }, svg);
+  el('text', {
+    x:grp.x+12, y:grp.y+14,
+    'font-size':9, 'font-weight':700, fill:grp.color, opacity:0.35,
+    'letter-spacing':'0.12em',
+    'font-family':'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
+  }, svg).textContent = grp.label;
 });
 
-// ── Draw nodes ───────────────────────────────────────
+// ── Draw edges ─────────────────────────────────────
+const edgeEls = edges.map((e) => {
+  const fn=nMap[e.f], tn=nMap[e.t];
+  const s=borderPt(fn,tn.cx,tn.cy), t=borderPt(tn,fn.cx,fn.cy);
+  const g = el('g', {class:'edge'}, svg);
+  const p = el('path', {
+    d:curvePath(s.x,s.y,t.x,t.y), fill:'none', stroke:'#2d3440',
+    'stroke-width':1.3, 'marker-end':'url(#ar)',
+  }, g);
+  return {g,p};
+});
+
+// ── Draw nodes ─────────────────────────────────────
 const nodeEls = {};
 nodes.forEach(n => {
   const c = T[n.g];
-  const g = el('g', { class: 'node', style: `--glow:${c.glow}` }, svg);
+  const g = el('g', {class:'node', style:`--glow:${c.glow}`}, svg);
   g.dataset.id = n.id;
-
   el('rect', {
-    class: 'node-rect',
-    x: n.cx - hw, y: n.cy - hh, width: W, height: H, rx: RX,
-    fill: c.bg, stroke: c.border, 'stroke-width': 1.5,
+    class:'node-rect',
+    x:n.cx-hw, y:n.cy-hh, width:W, height:H, rx:RX,
+    fill:c.bg, stroke:c.border, 'stroke-width':1.4,
   }, g);
-
-  // Label
   const t1 = el('text', {
-    x: n.cx, y: n.cy - 8,
-    'text-anchor': 'middle',
-    'font-size': 15, 'font-weight': 600,
-    fill: c.text,
-    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    x:n.cx, y:n.cy-7, 'text-anchor':'middle',
+    'font-size':13, 'font-weight':600, fill:c.text,
+    'font-family':'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
   }, g);
   t1.textContent = n.label;
-
-  // Sub-label
   const t2 = el('text', {
-    x: n.cx, y: n.cy + 14,
-    'text-anchor': 'middle',
-    'font-size': 11,
-    fill: c.border, opacity: 0.75,
-    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    x:n.cx, y:n.cy+12, 'text-anchor':'middle',
+    'font-size':10, fill:c.border, opacity:0.7,
+    'font-family':'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
   }, g);
   t2.textContent = n.sub;
-
   nodeEls[n.id] = g;
 });
 
-// ── Interactivity ────────────────────────────────────
+// ── Sidebar rendering ──────────────────────────────
 const info = document.getElementById('info');
+const dict = document.getElementById('dict');
 let pinned = null;
 
-function show(id) {
+function renderInfo(id) {
   const n = nMap[id];
+  let html = `<b>${n.label}</b>`;
+  if (n.path) html += `<span class="file-path">${n.path}</span>`;
+  html += `<div class="module-summary">${n.desc}</div>`;
+
+  if (n.items && n.items.length > 0) {
+    html += `<div class="section-title">Classes & Functions</div>`;
+    html += `<div class="item-legend">`;
+    html += `<span><div class="dot" style="background:#f0883e"></div> class</span>`;
+    html += `<span><div class="dot" style="background:#7ee787"></div> function</span>`;
+    html += `<span><div class="dot" style="background:#d2a8ff"></div> NamedTuple</span>`;
+    html += `<span><div class="dot" style="background:#79c0ff"></div> dataclass</span>`;
+    html += `</div><ul class="item-list">`;
+    for (const item of n.items) {
+      const cls = item.type==='c'?'is-class':item.type==='n'?'is-named-tuple':item.type==='d'?'is-dataclass':'is-func';
+      html += `<li class="${cls}"><span class="item-name">${item.name}</span> <span class="item-desc">&mdash; ${item.desc}</span></li>`;
+    }
+    html += `</ul>`;
+  }
+
+  if (n.libs && n.libs.length > 0) {
+    html += `<div class="section-title">Libraries</div>`;
+    html += `<div class="lib-tags">`;
+    for (const lib of n.libs) html += `<span class="lib-tag">${lib}</span>`;
+    html += `</div>`;
+  }
+
+  info.innerHTML = html;
+
+  if (n.dict && n.dict.length > 0) {
+    let dhtml = `<b>Math & Concepts</b>`;
+    dhtml += `<table><tr><th>Term</th><th>Description</th></tr>`;
+    for (const d of n.dict) dhtml += `<tr><td>${d.term}</td><td>${d.what}</td></tr>`;
+    dhtml += `</table>`;
+    dict.innerHTML = dhtml;
+    dict.classList.add('visible');
+  } else {
+    dict.classList.remove('visible');
+  }
+}
+
+function show(id) {
   const connected = new Set(eByN[id]);
-
-  Object.entries(nodeEls).forEach(([nid, el]) => {
-    el.classList.toggle('dim', nid !== id && !nbr[id].has(nid));
-    el.classList.toggle('lit', nid === id);
+  Object.entries(nodeEls).forEach(([nid,el]) => {
+    el.classList.toggle('dim', nid!==id && !nbr[id].has(nid));
+    el.classList.toggle('lit', nid===id);
   });
-
-  edgeEls.forEach(({ g, p }, i) => {
+  edgeEls.forEach(({g,p},i) => {
     const isConn = connected.has(i);
     g.classList.toggle('dim', !isConn);
-    p.setAttribute('stroke', isConn ? '#58a6ff' : '#2d3440');
-    p.setAttribute('stroke-width', isConn ? 2 : 1.5);
-    p.setAttribute('marker-end', isConn ? 'url(#ar-h)' : 'url(#ar)');
+    p.setAttribute('stroke', isConn?'#58a6ff':'#2d3440');
+    p.setAttribute('stroke-width', isConn?2:1.3);
+    p.setAttribute('marker-end', isConn?'url(#ar-h)':'url(#ar)');
   });
-
-  // Bring connected edges to front
-  edgeEls.forEach(({ g }, i) => { if (connected.has(i)) svg.appendChild(g); });
-  // Bring hovered node to front
+  edgeEls.forEach(({g},i) => { if (connected.has(i)) svg.appendChild(g); });
   svg.appendChild(nodeEls[id]);
-
-  info.innerHTML = `<b>${n.label}</b>${n.desc}`;
+  renderInfo(id);
 }
 
 function clear() {
-  Object.values(nodeEls).forEach(el => el.classList.remove('dim', 'lit'));
-  edgeEls.forEach(({ g, p }) => {
+  Object.values(nodeEls).forEach(el => el.classList.remove('dim','lit'));
+  edgeEls.forEach(({g,p}) => {
     g.classList.remove('dim');
-    p.setAttribute('stroke', '#2d3440');
-    p.setAttribute('stroke-width', 1.5);
-    p.setAttribute('marker-end', 'url(#ar)');
+    p.setAttribute('stroke','#2d3440');
+    p.setAttribute('stroke-width',1.3);
+    p.setAttribute('marker-end','url(#ar)');
   });
-  if (!pinned) info.innerHTML = '<span class="placeholder">Hover any file to see what it does.</span>';
+  if (!pinned) {
+    info.innerHTML = `<b>EB-JEPA Codebase</b>
+      <div class="module-summary">Energy-Based Joint Embedding Predictive Architecture.<br><br>
+      <b style="color:#c9922a;font-size:11px">Examples</b> &mdash; 3 training pipelines of increasing complexity, plus a SLURM launcher.<br>
+      <b style="color:#2f81f7;font-size:11px">Core</b> &mdash; The JEPA model, loss functions, network architectures, and planners.<br>
+      <b style="color:#2ea043;font-size:11px">Datasets</b> &mdash; Moving MNIST, trajectory slicing, and the Two Rooms environment.<br>
+      <b style="color:#8b5cf6;font-size:11px">Infrastructure</b> &mdash; Training utilities, schedulers, logging, visualization, decoders.<br>
+      <b style="color:#f85149;font-size:11px">Tests</b> &mdash; Unit and integration tests verifying planning, output shapes, and loss math.<br><br>
+      Click any module to see its classes, functions, libraries, and math concepts.</div>`;
+    dict.classList.remove('visible');
+  }
 }
 
-Object.entries(nodeEls).forEach(([id, el]) => {
+Object.entries(nodeEls).forEach(([id,el]) => {
   el.addEventListener('mouseenter', () => { if (!pinned) show(id); });
   el.addEventListener('mouseleave', () => { if (!pinned) clear(); });
   el.addEventListener('click', e => {
     e.stopPropagation();
-    pinned = (pinned === id) ? null : id;
+    pinned = (pinned===id) ? null : id;
     pinned ? show(id) : clear();
   });
 });
-
 document.getElementById('svg-wrap').addEventListener('click', () => {
-  if (pinned) { pinned = null; clear(); }
+  if (pinned) { pinned=null; clear(); }
 });
 </script>
 </body>
