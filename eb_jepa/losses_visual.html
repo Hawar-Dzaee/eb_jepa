@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EB-JEPA losses.py — Interactive Map</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d1117;color:#c9d1d9;font-family:'SF Mono','Fira Code','Cascadia Code',monospace;overflow:hidden;height:100vh}
+
+  /* layout */
+  #app{display:flex;height:100vh}
+  #canvas-wrap{flex:1;position:relative;overflow:hidden}
+  svg{width:100%;height:100%;display:block}
+  #sidebar{width:380px;min-width:200px;max-width:60vw;background:#161b22;overflow-y:auto;padding:24px;flex-shrink:0}
+
+  /* sidebar */
+  .sb-title{font-size:18px;font-weight:700;color:#58a6ff;margin-bottom:4px}
+  .sb-kind{font-size:12px;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+  .sb-section{margin-bottom:16px}
+  .sb-section h3{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#484f58;margin-bottom:6px;border-bottom:1px solid #21262d;padding-bottom:4px}
+  .sb-section p,.sb-section li{font-size:13px;line-height:1.6;color:#c9d1d9}
+  .sb-section ul{padding-left:18px}
+  .sb-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin:2px;font-weight:600}
+  .badge-class{background:#1f3a5f;color:#58a6ff}
+  .badge-function{background:#2a1f3f;color:#bc8cff}
+  .badge-param{background:#1f3f2a;color:#7ee787}
+  .badge-uses{background:#3f2a1f;color:#f0883e}
+
+  /* relation arrow labels */
+  .rel-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .rel-arrow{color:#484f58;font-size:16px}
+  .rel-target{color:#58a6ff;cursor:pointer;text-decoration:underline;text-decoration-color:#30363d}
+  .rel-target:hover{color:#79c0ff;text-decoration-color:#58a6ff}
+  .rel-desc{color:#8b949e;font-size:12px}
+
+  /* formula */
+  .formula{background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px 14px;font-size:13px;color:#e6edf3;margin:6px 0;font-family:'SF Mono',monospace;white-space:pre-wrap}
+
+  /* legend */
+  #legend{position:absolute;bottom:16px;left:16px;background:#161b22ee;border:1px solid #30363d;border-radius:8px;padding:12px 16px;font-size:11px;display:flex;gap:16px}
+  .leg-item{display:flex;align-items:center;gap:6px}
+  .leg-dot{width:12px;height:12px;border-radius:50%}
+
+  /* divider drag handle */
+  #divider{width:6px;background:#30363d;cursor:col-resize;flex-shrink:0;position:relative;z-index:20;transition:background .15s}
+  #divider:hover,#divider.dragging{background:#58a6ff}
+  #divider::before{content:'';position:absolute;top:0;left:-6px;right:-6px;bottom:0}
+
+  /* nodes */
+  .node-group{cursor:pointer}
+  .node-rect{rx:10;ry:10;stroke-width:2;transition:filter .2s,transform .15s;transform-origin:center;transform-box:fill-box}
+  .node-group:hover .node-rect{filter:brightness(1.3) drop-shadow(0 0 8px rgba(88,166,255,.4));transform:scale(1.06)}
+  .node-group.active .node-rect{filter:brightness(1.3) drop-shadow(0 0 8px rgba(88,166,255,.4))}
+  .node-label{fill:#e6edf3;font-size:13px;font-weight:600;text-anchor:middle;pointer-events:none;font-family:'SF Mono',monospace}
+  .node-kind{fill:#8b949e;font-size:10px;text-anchor:middle;pointer-events:none;font-family:'SF Mono',monospace}
+
+  /* edges */
+  .edge{fill:none;stroke-width:1.8;opacity:.35;transition:opacity .2s}
+  .edge.highlight{opacity:1;stroke-width:2.5}
+  marker path{transition:fill .2s}
+
+  /* group bg */
+  .group-bg{rx:16;ry:16;opacity:.06;transition:opacity .2s}
+  .group-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;opacity:.4;font-family:'SF Mono',monospace;font-weight:700}
+
+  /* overview panel */
+  .overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .overview-card{background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:10px;cursor:pointer;transition:border-color .2s}
+  .overview-card:hover{border-color:#58a6ff}
+  .overview-card h4{font-size:12px;color:#58a6ff;margin-bottom:4px}
+  .overview-card p{font-size:11px;color:#8b949e;line-height:1.4}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-wrap">
+    <svg id="svg"></svg>
+    <div id="legend"></div>
+  </div>
+  <div id="divider"></div>
+  <div id="sidebar"></div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────
+const ITEMS = [
+  // ── primitives (functions) ──
+  {
+    id:'sq_loss', kind:'function', label:'sq_loss', group:'primitive',
+    desc:'Simple square loss (MSE) between two tensors. A thin wrapper around PyTorch\'s mse_loss.',
+    params:['x','y','reduction="mean"'],
+    formula:'L = (1/N) * sum((x - y)^2)',
+    uses:['torch.nn.functional.mse_loss'],
+    relations:[],
+  },
+  {
+    id:'square_cost_seq', kind:'function', label:'square_cost_seq', group:'primitive',
+    desc:'Square loss between two 5-D sequences [B, C, T, H, W]. Delegates directly to sq_loss.',
+    params:['state [B,C,T,H,W]','predi [B,C,T,H,W]'],
+    formula:'L = sq_loss(state, predi)',
+    uses:['sq_loss'],
+    relations:[{target:'sq_loss',type:'calls',desc:'delegates to'}],
+  },
+  {
+    id:'all_reduce', kind:'function', label:'all_reduce', group:'primitive',
+    desc:'All-reduce operation for distributed training. Returns x unchanged if not in distributed mode.',
+    params:['x','op (e.g. "AVG")'],
+    formula:'',
+    uses:['torch.distributed'],
+    relations:[],
+  },
+  {
+    id:'epps_pulley', kind:'function', label:'epps_pulley', group:'primitive',
+    desc:'Epps-Pulley test statistic measuring how Gaussian a distribution is, via the characteristic function.',
+    params:['x','t_min=-3','t_max=3','n_points=10'],
+    formula:'T = integral |exp_f * (ECF(t) - exp_f)|^2 dt\nwhere exp_f = exp(-t^2/2)  (Gaussian CF)',
+    uses:['all_reduce','torch.trapz'],
+    relations:[{target:'all_reduce',type:'calls',desc:'uses for distributed averaging'}],
+  },
+
+  // ── building-block losses ──
+  {
+    id:'HingeStdLoss', kind:'class (nn.Module)', label:'HingeStdLoss', group:'building-block',
+    desc:'Prevents representation collapse by ensuring each feature dimension maintains a minimum standard deviation. Features with std below the margin are penalised.',
+    params:['std_margin=1.0'],
+    formula:'std_loss = mean( ReLU(margin - std_per_feature) )\nstd_per_feature = sqrt(var(x, dim=0) + 1e-4)',
+    uses:['torch.nn.functional.relu'],
+    relations:[],
+  },
+  {
+    id:'CovarianceLoss', kind:'class (nn.Module)', label:'CovarianceLoss', group:'building-block',
+    desc:'Encourages feature decorrelation by penalising off-diagonal elements of the covariance matrix. Pushes the covariance towards a diagonal (identity-like) matrix.',
+    params:[],
+    formula:'cov = (x^T @ x) / (N-1)\ncov_loss = mean( off_diagonal(cov)^2 )',
+    uses:[],
+    relations:[],
+  },
+  {
+    id:'TemporalSimilarityLoss', kind:'class (nn.Module)', label:'TemporalSimLoss', group:'building-block',
+    desc:'Encourages consecutive video frames to have similar representations. Penalises squared differences between adjacent time steps.',
+    params:[],
+    formula:'sim_loss = mean( (x[t+1] - x[t])^2 )',
+    uses:[],
+    relations:[],
+  },
+  {
+    id:'InverseDynamicsLoss', kind:'class (nn.Module)', label:'InverseDynLoss', group:'building-block',
+    desc:'Predicts actions from pairs of consecutive states using an inverse dynamics model (IDM), then compares with ground-truth actions via MSE.',
+    params:['idm (nn.Module)'],
+    formula:'pred = IDM(s_t, s_{t+1})\nidm_loss = MSE(pred, action_gt)',
+    uses:['torch.nn.functional.mse_loss'],
+    relations:[],
+  },
+
+  // ── composite losses ──
+  {
+    id:'SquareLossSeq', kind:'class (nn.Module)', label:'SquareLossSeq', group:'composite',
+    desc:'nn.Module wrapper for square_cost_seq. Optionally projects inputs through a learned projection before computing MSE. Used as the main prediction loss in JEPA.',
+    params:['proj=None'],
+    formula:'L = MSE( proj(state), proj(predi) )',
+    uses:['square_cost_seq'],
+    relations:[{target:'square_cost_seq',type:'calls',desc:'calls after projecting'}],
+  },
+  {
+    id:'VCLoss', kind:'class (nn.Module)', label:'VCLoss', group:'composite',
+    desc:'Variance-Covariance loss. Combines HingeStdLoss and CovarianceLoss with learned coefficients. Pushes feature means to zero and covariance toward identity. A regularizer that prevents collapse.',
+    params:['std_coeff','cov_coeff','proj=None'],
+    formula:'L = std_coeff * std_loss + cov_coeff * cov_loss',
+    uses:['HingeStdLoss','CovarianceLoss'],
+    relations:[
+      {target:'HingeStdLoss',type:'composes',desc:'uses for variance regularisation'},
+      {target:'CovarianceLoss',type:'composes',desc:'uses for decorrelation'},
+    ],
+  },
+  {
+    id:'VICRegLoss', kind:'class (nn.Module)', label:'VICRegLoss', group:'composite',
+    desc:'Full VICReg loss: Variance + Invariance + Covariance. Combines MSE invariance between two views with variance and covariance regularisation on each view independently.',
+    params:['std_coeff=1.0','cov_coeff=1.0'],
+    formula:'L = MSE(z1,z2) + std_coeff*(var(z1)+var(z2))\n  + cov_coeff*(cov(z1)+cov(z2))',
+    uses:['HingeStdLoss','CovarianceLoss','F.mse_loss'],
+    relations:[
+      {target:'HingeStdLoss',type:'composes',desc:'variance term on both views'},
+      {target:'CovarianceLoss',type:'composes',desc:'covariance term on both views'},
+    ],
+  },
+  {
+    id:'VC_IDM_Sim_Regularizer', kind:'class (nn.Module)', label:'VC_IDM_Sim', group:'composite',
+    desc:'The main composite regularizer in EB-JEPA. Combines four sub-losses: HingeStdLoss, CovarianceLoss, TemporalSimilarityLoss, and InverseDynamicsLoss. Supports optional projection, spatial-as-samples mode, and first-time-only slicing.',
+    params:['cov_coeff','std_coeff','sim_coeff_t','idm_coeff','idm','std_margin','first_t_only','projector','spatial_as_samples','sim_t_after_proj','idm_after_proj'],
+    formula:'L = cov_coeff*cov + std_coeff*std\n  + sim_coeff_t*sim_t + idm_coeff*idm',
+    uses:['HingeStdLoss','CovarianceLoss','TemporalSimilarityLoss','InverseDynamicsLoss'],
+    relations:[
+      {target:'HingeStdLoss',type:'composes',desc:'std regularisation'},
+      {target:'CovarianceLoss',type:'composes',desc:'covariance regularisation'},
+      {target:'TemporalSimilarityLoss',type:'composes',desc:'temporal smoothness'},
+      {target:'InverseDynamicsLoss',type:'composes',desc:'action prediction'},
+    ],
+  },
+  {
+    id:'BCS', kind:'class (nn.Module)', label:'BCS', group:'composite',
+    desc:'Batched Characteristic Slicing loss for SIGReg. Projects embeddings onto random slices, measures Gaussianity via Epps-Pulley, and adds MSE invariance between two views.',
+    params:['num_slices=256','lmbd=10.0'],
+    formula:'bcs = mean(EP(z1@A) + EP(z2@A)) / 2\nL = MSE(z1,z2) + lambda * bcs',
+    uses:['epps_pulley','F.mse_loss'],
+    relations:[
+      {target:'epps_pulley',type:'calls',desc:'Gaussianity test on sliced projections'},
+    ],
+  },
+];
+
+// ── Colours ──
+const GROUP_COLORS = {
+  'primitive':      {fill:'#8b5cf6', bg:'#8b5cf6', text:'Primitive Functions'},
+  'building-block': {fill:'#f59e0b', bg:'#f59e0b', text:'Building-Block Losses'},
+  'composite':      {fill:'#10b981', bg:'#10b981', text:'Composite Losses'},
+};
+
+const EDGE_COLORS = {
+  'calls':    '#58a6ff',
+  'composes': '#f0883e',
+};
+
+// ── Layout ──
+const COLS = {
+  'primitive':      {x:120, items:[]},
+  'building-block': {x:420, items:[]},
+  'composite':      {x:760, items:[]},
+};
+ITEMS.forEach(it => COLS[it.group].items.push(it));
+
+const ROW_H = 80, START_Y = 80, NODE_W = 150, NODE_H = 52;
+
+function layout(){
+  Object.values(COLS).forEach(col=>{
+    const totalH = col.items.length * ROW_H;
+    const offsetY = START_Y + (Math.max(...Object.values(COLS).map(c=>c.items.length)) * ROW_H - totalH)/2;
+    col.items.forEach((it,i)=>{
+      it.cx = col.x;
+      it.cy = offsetY + i * ROW_H + ROW_H/2;
+    });
+  });
+}
+layout();
+
+const itemMap = {};
+ITEMS.forEach(it => itemMap[it.id]=it);
+
+// ── Render SVG ──
+const svg = document.getElementById('svg');
+const ns = 'http://www.w3.org/2000/svg';
+
+function el(tag,attrs){
+  const e = document.createElementNS(ns,tag);
+  for(const[k,v]of Object.entries(attrs||{})) e.setAttribute(k,v);
+  return e;
+}
+
+// defs — markers
+const defs = el('defs');
+['calls','composes'].forEach(type=>{
+  const m = el('marker',{id:'arrow-'+type,viewBox:'0 0 10 10',refX:'10',refY:'5',markerWidth:'8',markerHeight:'8',orient:'auto-start-reverse'});
+  const p = el('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:EDGE_COLORS[type]});
+  m.appendChild(p); defs.appendChild(m);
+});
+svg.appendChild(defs);
+
+// group backgrounds
+const groupG = el('g');
+svg.appendChild(groupG);
+Object.entries(COLS).forEach(([gname,col])=>{
+  const items = col.items;
+  const minY = Math.min(...items.map(i=>i.cy)) - 50;
+  const maxY = Math.max(...items.map(i=>i.cy)) + 50;
+  const r = el('rect',{x:col.x - NODE_W/2 - 30, y:minY, width:NODE_W+60, height:maxY-minY, fill:GROUP_COLORS[gname].bg, class:'group-bg'});
+  groupG.appendChild(r);
+  const lbl = el('text',{x:col.x, y:minY+14, fill:GROUP_COLORS[gname].bg, class:'group-label','text-anchor':'middle'});
+  lbl.textContent = GROUP_COLORS[gname].text;
+  groupG.appendChild(lbl);
+});
+
+// edges
+const edgeG = el('g');
+svg.appendChild(edgeG);
+const edges = [];
+ITEMS.forEach(src=>{
+  src.relations.forEach(rel=>{
+    const tgt = itemMap[rel.target];
+    if(!tgt) return;
+    // Draw path from dependency (tgt) TO the composite (src), arrow at src end
+    const path = el('path',{
+      d:edgePath(tgt,src),
+      stroke:EDGE_COLORS[rel.type]||'#484f58',
+      'marker-end':`url(#arrow-${rel.type})`,
+      class:'edge',
+      'data-src':src.id,
+      'data-tgt':tgt.id,
+    });
+    edgeG.appendChild(path);
+    edges.push({el:path,src:src.id,tgt:tgt.id});
+  });
+});
+
+function edgePath(src,tgt){
+  const sx = src.cx + (tgt.cx < src.cx ? -NODE_W/2 : (tgt.cx > src.cx ? NODE_W/2 : 0));
+  const sy = src.cy;
+  const tx = tgt.cx + (src.cx < tgt.cx ? -NODE_W/2 : (src.cx > tgt.cx ? NODE_W/2 : 0));
+  const ty = tgt.cy;
+  const mx = (sx+tx)/2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+
+// nodes
+const nodeG = el('g');
+svg.appendChild(nodeG);
+const nodeEls = {};
+ITEMS.forEach(it=>{
+  const g = el('g',{class:'node-group','data-id':it.id, transform:`translate(${it.cx},${it.cy})`});
+  const r = el('rect',{x:-NODE_W/2, y:-NODE_H/2, width:NODE_W, height:NODE_H, fill:GROUP_COLORS[it.group].fill+'22', stroke:GROUP_COLORS[it.group].fill, class:'node-rect'});
+  const lbl = el('text',{y:it.kind.startsWith('class')?-4:2, class:'node-label'});
+  lbl.textContent = it.label;
+  g.appendChild(r);
+  g.appendChild(lbl);
+  if(it.kind.startsWith('class')||it.kind==='function'){
+    const k = el('text',{y:14, class:'node-kind'});
+    k.textContent = it.kind;
+    g.appendChild(k);
+  }
+  nodeG.appendChild(g);
+  nodeEls[it.id] = g;
+
+  g.addEventListener('click', ()=> selectNode(it.id));
+});
+
+// ── Sidebar ──
+const sidebar = document.getElementById('sidebar');
+let activeId = null;
+
+function selectNode(id){
+  if(activeId===id){activeId=null; showOverview(); unhighlightAll(); return;}
+  activeId = id;
+  Object.values(nodeEls).forEach(n=>n.classList.remove('active'));
+  nodeEls[id].classList.add('active');
+  highlightEdges(id);
+  renderSidebar(itemMap[id]);
+}
+
+function unhighlightAll(){
+  Object.values(nodeEls).forEach(n=>n.classList.remove('active'));
+  edges.forEach(e=>e.el.classList.remove('highlight'));
+}
+
+function highlightEdges(id){
+  edges.forEach(e=>{
+    if(e.src===id||e.tgt===id) e.el.classList.add('highlight');
+    else e.el.classList.remove('highlight');
+  });
+}
+
+function renderSidebar(it){
+  let html = `<div class="sb-title">${it.id}</div>
+  <div class="sb-kind">${it.kind}</div>
+  <div class="sb-section"><h3>Description</h3><p>${it.desc}</p></div>`;
+
+  if(it.params.length){
+    html += `<div class="sb-section"><h3>Parameters</h3><div>${it.params.map(p=>`<span class="sb-badge badge-param">${p}</span>`).join(' ')}</div></div>`;
+  }
+
+  if(it.formula){
+    html += `<div class="sb-section"><h3>Formula</h3><div class="formula">${it.formula}</div></div>`;
+  }
+
+  if(it.uses.length){
+    html += `<div class="sb-section"><h3>Dependencies</h3><div>${it.uses.map(u=>`<span class="sb-badge badge-uses">${u}</span>`).join(' ')}</div></div>`;
+  }
+
+  if(it.relations.length){
+    html += `<div class="sb-section"><h3>Relations</h3>`;
+    it.relations.forEach(r=>{
+      html += `<div class="rel-item">
+        <span class="rel-arrow">${r.type==='calls'?'&#8594;':'&#9670;'}</span>
+        <span class="rel-target" onclick="selectNode('${r.target}')">${r.target}</span>
+        <span class="rel-desc">- ${r.desc}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // who uses me?
+  const usedBy = ITEMS.filter(x=>x.relations.some(r=>r.target===it.id));
+  if(usedBy.length){
+    html += `<div class="sb-section"><h3>Used By</h3>`;
+    usedBy.forEach(u=>{
+      const rel = u.relations.find(r=>r.target===it.id);
+      html += `<div class="rel-item">
+        <span class="rel-arrow">&#8592;</span>
+        <span class="rel-target" onclick="selectNode('${u.id}')">${u.id}</span>
+        <span class="rel-desc">- ${rel.desc}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  sidebar.innerHTML = html;
+}
+
+function showOverview(){
+  let html = `<div class="sb-title">losses.py</div>
+  <div class="sb-kind">eb_jepa / losses.py &mdash; ${ITEMS.length} components</div>
+  <div class="sb-section"><h3>Overview</h3>
+  <p>This module defines loss functions and regularizers for the EB-JEPA (Energy-Based Joint Embedding Predictive Architecture). Losses range from simple MSE to composite regularizers that combine variance, covariance, temporal, and inverse-dynamics terms.</p>
+  </div>
+  <div class="sb-section"><h3>Architecture</h3>
+  <p><b>Primitive functions</b> are standalone helpers. <b>Building-block losses</b> are nn.Modules that each address one aspect of representation quality. <b>Composite losses</b> combine building blocks with learned coefficients.</p>
+  </div>
+  <div class="sb-section"><h3>Click any node to explore</h3>
+  <div class="overview-grid">`;
+  ITEMS.forEach(it=>{
+    const c = GROUP_COLORS[it.group].fill;
+    html += `<div class="overview-card" onclick="selectNode('${it.id}')" style="border-left:3px solid ${c}">
+      <h4>${it.label}</h4><p>${it.kind}</p></div>`;
+  });
+  html += `</div></div>`;
+  sidebar.innerHTML = html;
+}
+
+// legend
+const legend = document.getElementById('legend');
+Object.entries(GROUP_COLORS).forEach(([k,v])=>{
+  legend.innerHTML += `<div class="leg-item"><div class="leg-dot" style="background:${v.fill}"></div>${v.text}</div>`;
+});
+legend.innerHTML += `<div class="leg-item"><div class="leg-dot" style="background:${EDGE_COLORS.calls}"></div>Calls</div>`;
+legend.innerHTML += `<div class="leg-item"><div class="leg-dot" style="background:${EDGE_COLORS.composes}"></div>Composes</div>`;
+
+showOverview();
+
+// ── Sidebar resize drag ──
+(function(){
+  const divider = document.getElementById('divider');
+  const sb = document.getElementById('sidebar');
+  let dragging = false, startX, startW;
+
+  divider.addEventListener('mousedown', e=>{
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startW = sb.offsetWidth;
+    divider.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const dx = startX - e.clientX;
+    const newW = Math.min(Math.max(startW + dx, 200), window.innerWidth * 0.6);
+    sb.style.width = newW + 'px';
+  });
+
+  document.addEventListener('mouseup', ()=>{
+    if(!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+</script>
+</body>
+</html>

@@ -79,6 +79,39 @@
 
   /* Group label styling */
   .group-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* Internal map panel */
+  #internal-map-wrap {
+    width: 100%; max-width: 1600px; margin-top: 16px;
+    display: none;
+  }
+  #internal-map-wrap.visible { display: block; }
+  #internal-map {
+    background: #161b22; border: 1px solid #21262d; border-radius: 10px;
+    padding: 18px; position: relative;
+  }
+  #internal-map-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #8b949e; margin-bottom: 12px;
+  }
+  #internal-map-title span { color: #e6edf3; text-transform: none; letter-spacing: 0; font-size: 13px; }
+  #internal-svg { width: 100%; overflow: visible; }
+  .inode { cursor: default; }
+  .inode rect {
+    rx: 6; ry: 6; stroke-width: 1.2;
+    transition: filter 0.15s;
+  }
+  .inode text { font-family: 'SF Mono','Fira Code',monospace; }
+  .iedge line, .iedge path { stroke-width: 1.2; fill: none; }
+  .iedge-label {
+    font-size: 8px; fill: #484f58;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .ilegend { display: flex; gap: 16px; margin-top: 10px; font-size: 10px; color: #484f58; }
+  .ilegend span { display: flex; align-items: center; gap: 5px; }
+  .ilegend .idot { width: 8px; height: 8px; border-radius: 2px; }
+  .ilegend .iline { width: 18px; height: 0; border-top: 1.5px solid; }
+  .no-internal { color: #30363d; font-size: 12px; padding: 12px 0; }
 </style>
 </head>
 <body>
@@ -112,6 +145,22 @@
       Click any module to see its classes, functions, libraries, and math concepts.</div>
     </div>
     <div id="dict"></div>
+  </div>
+</div>
+
+<div id="internal-map-wrap">
+  <div id="internal-map">
+    <div id="internal-map-title">Internal Map &mdash; <span id="internal-map-module"></span></div>
+    <svg id="internal-svg"></svg>
+    <div class="ilegend">
+      <span><div class="idot" style="background:#f0883e"></div> class</span>
+      <span><div class="idot" style="background:#7ee787"></div> function</span>
+      <span><div class="idot" style="background:#d2a8ff"></div> NamedTuple</span>
+      <span><div class="idot" style="background:#79c0ff"></div> dataclass</span>
+      <span><div class="iline" style="border-color:#f0883e"></div> extends</span>
+      <span><div class="iline" style="border-color:#58a6ff"></div> uses</span>
+      <span><div class="iline" style="border-color:#7ee787; border-top-style:dashed"></div> calls</span>
+    </div>
   </div>
 </div>
 
@@ -549,6 +598,84 @@ const edges = [
   {f:'tplan',t:'plan'}, {f:'tjout',t:'jepa'}, {f:'tloss',t:'loss'},
 ];
 
+// ── Internal edges (within-module relationships) ──
+const internalEdges = {
+  loss: [
+    {from:'square_cost_seq()',to:'sq_loss()',type:'calls'},
+    {from:'SquareLossSeq',to:'square_cost_seq()',type:'calls'},
+    {from:'VCLoss',to:'HingeStdLoss',type:'uses'},
+    {from:'VCLoss',to:'CovarianceLoss',type:'uses'},
+    {from:'VC_IDM_Sim_Regularizer',to:'HingeStdLoss',type:'uses'},
+    {from:'VC_IDM_Sim_Regularizer',to:'CovarianceLoss',type:'uses'},
+    {from:'VC_IDM_Sim_Regularizer',to:'TemporalSimilarityLoss',type:'uses'},
+    {from:'VC_IDM_Sim_Regularizer',to:'InverseDynamicsLoss',type:'uses'},
+    {from:'VICRegLoss',to:'HingeStdLoss',type:'uses'},
+    {from:'VICRegLoss',to:'CovarianceLoss',type:'uses'},
+    {from:'BCS',to:'epps_pulley()',type:'calls'},
+  ],
+  jepa: [
+    {from:'JEPA',to:'JEPAbase',type:'extends'},
+    {from:'JEPAProbe',to:'JEPAbase',type:'uses'},
+  ],
+  arch: [
+    {from:'ResNet5',to:'ResidualBlock',type:'uses'},
+    {from:'ResUNet',to:'ResidualBlock',type:'uses'},
+    {from:'StateOnlyPredictor',to:'SimplePredictor',type:'extends'},
+    {from:'ImpalaEncoder',to:'ResnetStack',type:'uses'},
+    {from:'ResnetStack',to:'ResnetBlock',type:'uses'},
+    {from:'DetHead',to:'conv3d2',type:'uses'},
+  ],
+  plan: [
+    {from:'CEMPlanner',to:'Planner',type:'extends'},
+    {from:'MPPIPlanner',to:'Planner',type:'extends'},
+    {from:'GCAgent',to:'ReprTargetDistMPCObjective',type:'uses'},
+    {from:'main_eval()',to:'GCAgent',type:'uses'},
+    {from:'main_unroll_eval()',to:'GCAgent',type:'uses'},
+  ],
+  mnist: [
+    {from:'MovingMNISTDet',to:'MovingMNIST',type:'extends'},
+    {from:'MovingMNISTDet',to:'return_bbox()',type:'calls'},
+  ],
+  traj: [
+    {from:'get_train_val_sliced()',to:'TrajSlicerDataset',type:'uses'},
+    {from:'get_train_val_sliced()',to:'random_split_traj()',type:'calls'},
+    {from:'random_split_traj()',to:'TrajSubset',type:'uses'},
+  ],
+  troom: [
+    {from:'WallDataset',to:'DotDataset',type:'extends'},
+    {from:'WallDatasetConfig',to:'DotDatasetConfig',type:'extends'},
+    {from:'WallDataset',to:'check_wall_intersect()',type:'calls'},
+    {from:'WallDataset',to:'generate_wall_layouts()',type:'calls'},
+  ],
+  dutil: [
+    {from:'init_data()',to:'load_env_data_config()',type:'calls'},
+  ],
+  img: [
+    {from:'ImageSSL',to:'ResNet18',type:'uses'},
+    {from:'train_epoch()',to:'ImageSSL',type:'uses'},
+    {from:'train_epoch()',to:'LinearProbe',type:'uses'},
+    {from:'run()',to:'train_epoch()',type:'calls'},
+    {from:'run()',to:'ImageDataset',type:'uses'},
+    {from:'evaluate_linear_probe()',to:'LinearProbe',type:'uses'},
+  ],
+  vid: [
+    {from:'run()',to:'validation_loop()',type:'calls'},
+    {from:'validation_loop()',to:'visualize_videos()',type:'calls'},
+    {from:'visualize_videos()',to:'add_label_to_video()',type:'calls'},
+  ],
+  acv: [
+    {from:'run()',to:'launch_plan_eval()',type:'calls'},
+    {from:'run()',to:'launch_unroll_eval()',type:'calls'},
+  ],
+  tloss: [
+    {from:'TestFullLossEquivalence',to:'TestStdLossEquivalence',type:'uses'},
+    {from:'TestFullLossEquivalence',to:'TestCovLossEquivalence',type:'uses'},
+  ],
+  tplan: [
+    {from:'test_planning_integration()',to:'test_cem_planner()',type:'uses'},
+  ],
+};
+
 // ── Build maps ─────────────────────────────────────
 const nMap = {};
 nodes.forEach(n => nMap[n.id] = n);
@@ -734,7 +861,191 @@ function clear() {
       <b style="color:#f85149;font-size:11px">Tests</b> &mdash; Unit and integration tests verifying planning, output shapes, and loss math.<br><br>
       Click any module to see its classes, functions, libraries, and math concepts.</div>`;
     dict.classList.remove('visible');
+    hideInternalMap();
   }
+}
+
+// ── Internal map rendering ─────────────────────────
+const intWrap = document.getElementById('internal-map-wrap');
+const intSvg = document.getElementById('internal-svg');
+const intTitle = document.getElementById('internal-map-module');
+
+const typeColor = {c:'#f0883e', f:'#7ee787', n:'#d2a8ff', d:'#79c0ff'};
+const typeBg    = {c:'#2a1a08', f:'#0a1e0a', n:'#1a0e2e', d:'#0a1a2e'};
+const edgeColor = {extends:'#f0883e', uses:'#58a6ff', calls:'#7ee787'};
+
+function renderInternalMap(nodeId) {
+  const n = nMap[nodeId];
+  const ie = internalEdges[nodeId];
+  intSvg.innerHTML = '';
+  intTitle.textContent = n.label;
+
+  if (!n.items || n.items.length === 0) {
+    intWrap.classList.remove('visible'); return;
+  }
+  intWrap.classList.add('visible');
+
+  // No internal edges → show standalone message
+  if (!ie || ie.length === 0) {
+    intSvg.setAttribute('viewBox','0 0 800 50');
+    intSvg.style.height = '50px';
+    const t = document.createElementNS(SVG_NS,'text');
+    t.setAttribute('x',400); t.setAttribute('y',30);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size',12); t.setAttribute('fill','#30363d');
+    t.setAttribute('font-family','-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif');
+    t.textContent = 'All items are standalone — no internal dependencies';
+    intSvg.appendChild(t);
+    return;
+  }
+
+  // Build item lookup
+  const items = n.items.map(it => ({...it, name: it.name}));
+  const itemMap = {};
+  items.forEach(it => itemMap[it.name] = it);
+
+  // Build adjacency (from → to means "from depends on / uses to")
+  const outgoing = {}, incoming = {};
+  items.forEach(it => { outgoing[it.name] = []; incoming[it.name] = []; });
+  ie.forEach(e => {
+    if (outgoing[e.from]) outgoing[e.from].push(e);
+    if (incoming[e.to]) incoming[e.to].push(e);
+  });
+
+  // Topological layering: layer 0 = no outgoing (base/standalone), higher = depends on lower
+  const layer = {};
+  const visited = {};
+  function assignLayer(name) {
+    if (visited[name]) return layer[name];
+    visited[name] = true;
+    let maxChild = -1;
+    (outgoing[name]||[]).forEach(e => {
+      maxChild = Math.max(maxChild, assignLayer(e.to));
+    });
+    layer[name] = maxChild + 1;
+    // Items with no edges at all → layer 0
+    if ((outgoing[name]||[]).length === 0 && (incoming[name]||[]).length === 0) layer[name] = 0;
+    return layer[name];
+  }
+  items.forEach(it => assignLayer(it.name));
+
+  // Group items by layer
+  const layers = {};
+  let maxLayer = 0;
+  items.forEach(it => {
+    const l = layer[it.name];
+    if (!layers[l]) layers[l] = [];
+    layers[l].push(it);
+    maxLayer = Math.max(maxLayer, l);
+  });
+
+  // Layout: each layer is a row, top = highest layer (composites), bottom = base
+  const NW = 160, NH = 36, HGAP = 24, VGAP = 56;
+  const positions = {};
+  const numLayers = maxLayer + 1;
+
+  // Compute total width needed
+  let totalW = 0;
+  for (let l = 0; l <= maxLayer; l++) {
+    const rowW = (layers[l]||[]).length * (NW + HGAP) - HGAP;
+    totalW = Math.max(totalW, rowW);
+  }
+  totalW = Math.max(totalW, 400);
+  const svgW = totalW + 80;
+  const svgH = numLayers * (NH + VGAP) + 20;
+
+  for (let l = 0; l <= maxLayer; l++) {
+    const row = layers[l] || [];
+    const rowW = row.length * (NW + HGAP) - HGAP;
+    const startX = (svgW - rowW) / 2 + NW/2;
+    const y = (maxLayer - l) * (NH + VGAP) + NH/2 + 10;
+    row.forEach((it, i) => {
+      positions[it.name] = { x: startX + i * (NW + HGAP), y };
+    });
+  }
+
+  intSvg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  intSvg.style.height = Math.min(svgH, 500) + 'px';
+
+  // Draw edges
+  const intDefs = document.createElementNS(SVG_NS,'defs');
+  intSvg.appendChild(intDefs);
+  ['extends','uses','calls'].forEach(t => {
+    const m = document.createElementNS(SVG_NS,'marker');
+    m.setAttribute('id','im-'+t); m.setAttribute('markerWidth',7); m.setAttribute('markerHeight',7);
+    m.setAttribute('refX',6); m.setAttribute('refY',3); m.setAttribute('orient','auto');
+    const p = document.createElementNS(SVG_NS,'path');
+    p.setAttribute('d','M0,0 L0,6 L7,3 z'); p.setAttribute('fill',edgeColor[t]);
+    m.appendChild(p); intDefs.appendChild(m);
+  });
+
+  ie.forEach(e => {
+    const from = positions[e.from], to = positions[e.to];
+    if (!from || !to) return;
+    const g = document.createElementNS(SVG_NS,'g');
+    g.setAttribute('class','iedge');
+    // Compute edge endpoints at rect borders
+    const dy = to.y - from.y, dx = to.x - from.x;
+    const ang = Math.atan2(dy, dx);
+    const sx = from.x + Math.cos(ang) * NW/2;
+    const sy = from.y + Math.sin(ang) * NH/2;
+    const ex = to.x - Math.cos(ang) * NW/2;
+    const ey = to.y - Math.sin(ang) * NH/2;
+
+    const line = document.createElementNS(SVG_NS,'line');
+    line.setAttribute('x1',sx); line.setAttribute('y1',sy);
+    line.setAttribute('x2',ex); line.setAttribute('y2',ey);
+    line.setAttribute('stroke',edgeColor[e.type]||'#30363d');
+    if (e.type === 'calls') line.setAttribute('stroke-dasharray','5,3');
+    line.setAttribute('marker-end',`url(#im-${e.type})`);
+    g.appendChild(line);
+
+    // Edge label at midpoint
+    const mx = (sx+ex)/2, my = (sy+ey)/2 - 5;
+    const lbl = document.createElementNS(SVG_NS,'text');
+    lbl.setAttribute('x',mx); lbl.setAttribute('y',my);
+    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('class','iedge-label');
+    lbl.textContent = e.type;
+    g.appendChild(lbl);
+
+    intSvg.appendChild(g);
+  });
+
+  // Draw nodes
+  items.forEach(it => {
+    const pos = positions[it.name];
+    if (!pos) return;
+    const g = document.createElementNS(SVG_NS,'g');
+    g.setAttribute('class','inode');
+    const col = typeColor[it.type] || '#8b949e';
+    const bg = typeBg[it.type] || '#161b22';
+
+    const isConnected = (outgoing[it.name]||[]).length > 0 || (incoming[it.name]||[]).length > 0;
+
+    const r = document.createElementNS(SVG_NS,'rect');
+    r.setAttribute('x', pos.x - NW/2); r.setAttribute('y', pos.y - NH/2);
+    r.setAttribute('width', NW); r.setAttribute('height', NH);
+    r.setAttribute('fill', bg); r.setAttribute('stroke', col);
+    r.setAttribute('stroke-opacity', isConnected ? 1 : 0.35);
+    r.setAttribute('fill-opacity', isConnected ? 1 : 0.5);
+    g.appendChild(r);
+
+    const t = document.createElementNS(SVG_NS,'text');
+    t.setAttribute('x', pos.x); t.setAttribute('y', pos.y + 4);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size', it.name.length > 18 ? 9 : 10.5);
+    t.setAttribute('font-weight',600);
+    t.setAttribute('fill', col);
+    t.setAttribute('opacity', isConnected ? 1 : 0.5);
+    t.textContent = it.name;
+    g.appendChild(t);
+
+    intSvg.appendChild(g);
+  });
+}
+
+function hideInternalMap() {
+  intWrap.classList.remove('visible');
 }
 
 Object.entries(nodeEls).forEach(([id,el]) => {
@@ -743,11 +1054,12 @@ Object.entries(nodeEls).forEach(([id,el]) => {
   el.addEventListener('click', e => {
     e.stopPropagation();
     pinned = (pinned===id) ? null : id;
-    pinned ? show(id) : clear();
+    if (pinned) { show(id); renderInternalMap(id); }
+    else { clear(); hideInternalMap(); }
   });
 });
 document.getElementById('svg-wrap').addEventListener('click', () => {
-  if (pinned) { pinned=null; clear(); }
+  if (pinned) { pinned=null; clear(); hideInternalMap(); }
 });
 </script>
 </body>
