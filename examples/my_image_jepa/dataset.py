@@ -41,7 +41,7 @@ class Grayscale:
 class Solarization: 
     """Solarization augmentation"""
     def __init__(self,prob = 0.1): 
-        pass 
+        self.prob = prob  
 
     def __call__(self,img): 
         if torch.rand(1) < self.prob: 
@@ -57,7 +57,7 @@ class HorizontalFlip:
 
     def __call__(self,img): 
         if torch.rand(1) < self.prob: 
-            return transforms.funtional.hflip(img)
+            return transforms.functional.hflip(img)
         return img 
     
 
@@ -72,6 +72,7 @@ def get_train_transform():
             Grayscale(prob=0.2),
             Solarization(prob=0.1),
             HorizontalFlip(prob=0.5),
+            transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
             
         ]
