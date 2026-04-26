@@ -1,5 +1,5 @@
 import torch
-import tqdm 
+from tqdm import tqdm
 
 def train_epoch(
         model,
@@ -26,3 +26,5 @@ def train_epoch(
     linear_total = 0 
 
     pbar = tqdm(train_loader,desc=f"Epoch {epoch}",disable=tqdm_silent)
+    for batch_idx,(views,target) in enumerate(pbar):
+        pass 
