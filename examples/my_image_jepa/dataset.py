@@ -45,7 +45,7 @@ class Solarization:
 
     def __call__(self,img): 
         if torch.rand(1) < self.prob: 
-            img = transforms.functional.solarize(img,threeshold = 128)
+            img = transforms.functional.solarize(img,threshold = 128)
         return img 
     
 
@@ -61,7 +61,7 @@ class HorizontalFlip:
         return img 
     
 
-def get_train_transform(): 
+def get_train_transforms(): 
     """Get training transforms for self-supervised learning."""
     transform = transforms.Compose(
         [
@@ -81,7 +81,7 @@ def get_train_transform():
     return transform
 
 
-def get_val_transform(): 
+def get_val_transforms(): 
     """Get validation transforms"""
     return transforms.Compose(
         [
