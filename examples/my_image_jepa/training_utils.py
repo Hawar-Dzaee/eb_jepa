@@ -6,6 +6,7 @@ from typing import Union,Optional,Dict,Any,List
 
 import numpy as np 
 import torch
+import torch.nn as nn 
 from omegaconf import DictConfig,OmegaConf
 
 from log_utils import get_logger
@@ -240,4 +241,46 @@ def get_exp_name(example_name: str, cfg) -> str:
         )
     else:
         return "exp"
-    
+
+
+def log_model_info(model: nn.Module, param_counts: Dict[str, int]) -> None:
+    """Log model structure and parameter counts"""
+    logger.info(f"🧠 Model:\n{model}")
+    param_str = " | ".join(f"{k}={v:,}" for k,v in param_counts.items())
+    logger.info(f"🔢 Parameters: {param_str}")
+
+
+def log_data_info(
+        dataset_name: str,
+        num_batches: int,
+        batch_size: int,
+        train_samples: Optional[int] = None,
+        val_samples: Optional[int] = None
+) -> None: 
+    """Log dataset information."""
+    if train_samples is not None and val_samples is not None:
+        logger.info(
+            f"📦 Data: {dataset_name} | {num_batches} batches x {batch_size} samples | "
+            f"train={train_samples:,} | val={val_samples:,}"
+        )
+    else:
+        logger.info(
+            f"📦 Data: {dataset_name} | {num_batches} batches x {batch_size} samples"
+        )
+
+def log_cofig(cfg: Union[Dict,DictConfig], title: str = "Run Configuration") -> None:
+    """Log configuration in a readable format."""
+    logger.info("=" * 60)
+    logger.info(f"⚙️  {title}:")
+    logger.info("=" * 60)
+
+    if isinstance(cfg, DictConfig):
+        cfg = OmegaConf.to_container(cfg, resolve=True)
+
+    for section, values in cfg.items():
+        if isinstance(values,dict):
+            for key, value in values.items():
+                logger.info(f"  {section}.{key}={value}")
+        else:
+            logger.info(f"  {section}={values}")
+    logger.info("=" * 60)
