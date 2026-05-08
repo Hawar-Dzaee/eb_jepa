@@ -39,13 +39,3 @@ class ImageSSL(nn.Module):
         projections = self.projector(features)
         return features,projections
     
-
-class LinearProbe(nn.Module): 
-    """Linear probe classifier for evaluation representations."""
-    def __init__(self,feature_dim,num_classes):
-        super().__init__()
-        self.classifier = nn.Linear(feature_dim,num_classes)
-
-    def forward(self,x): 
-        return self.classifier(x)
-    

@@ -225,12 +225,7 @@ EMA:
     blending new weights with old ones each step. Common in SSL methods
     like BYOL and DINO to stabilise training targets.
 
-wandb:
-  stands_for: Weights & Biases
-  category: training-utility
-  summary: >
-    Third-party experiment-tracking platform. Logs metrics, configs,
-    and artifacts so you can compare runs in a dashboard.
+
 
 # ── Datasets ─────────────────────────────────────────────────────────────────
 

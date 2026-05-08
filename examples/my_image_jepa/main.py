@@ -1,4 +1,5 @@
 import os 
+import time 
 from pathlib import Path 
 
 import torch 
@@ -27,14 +28,13 @@ from training_utils import (
     log_model_info,
     log_cofig,
 )
-
 from dataset import (
     ImageDataset,
     get_train_transforms,
     get_val_transforms
 )
-
 from losses import VICRegLoss, BCS
+from engine import train_epoch
 
 logger = get_logger(__name__)
 
@@ -239,4 +239,30 @@ def run(
         start_epoch = ckpt_info.get("epoch",0)
         if "linear_probe_state_dict" in ckpt_info:
             linear_probe.load_state_dict(ckpt_info["linear_probe_state_dict"])
-            
+    
+
+    # Training loop 
+    logger.info(f"Starting training for {cfg.optim.epochs} epochs...")
+    start_time = time.time()
+    use_amp = cfg.training.get("use_amp", True)
+    tqdm_silent = cfg.logging.get("tqdm_silent", False)
+
+    for epoch in range(start_epoch, cfg.optim.epochs):
+        # Train 
+        train_metrics = train_epoch(
+            model,
+            train_loader,
+            optimizer,
+            scheduler,
+            linear_probe,
+            scaler,
+            device,
+            epoch,
+            loss_fn,
+            use_amp,
+            dtype,
+            tqdm_silent
+        )
+
+        # Evaluate linear probe on validation set 
+        val_acc, val_loss = evaluate_linear_probe()
