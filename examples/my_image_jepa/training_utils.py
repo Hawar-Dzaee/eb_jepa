@@ -7,6 +7,7 @@ from typing import Union,Optional,Dict,Any,List
 import numpy as np 
 import torch
 import torch.nn as nn 
+import torch.optim as optim
 from omegaconf import DictConfig,OmegaConf
 
 from log_utils import get_logger
@@ -145,6 +146,100 @@ def setup_wandb(
 def get_default_dev_name() -> str:
     return datetime.now().strftime("dev_%Y-%m-%d_%H-%M")
 
+
+def save_checkpoint(
+        path: Union[str, Path],
+        model: nn.Module,
+        optimizer: Optional[optim.Optimizer] = None,
+        scheduler: Optional[Any] = None,
+        epoch: int = 0,
+        step: int = 0,
+        scaler: Optional[Any] = None,
+        **extra_state,
+) -> None: 
+    """Save a training checkpoint (model, optimizer, scheduler, scaler, extra_state)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True,exist_ok=True)
+
+    checkpoint = {
+        "epoch": epoch,
+        "step": step,
+        "model_state_dict": model.state_dict(),
+    }
+
+    if optimizer is not None: 
+        checkpoint["optimizer_state_dict"] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint["scheduler_state_dict"] = scheduler.state_dict()
+    if scaler is not None:
+        checkpoint["scaler_state_dict"] = scaler.state_dict()
+
+    checkpoint.update(extra_state)
+
+    torch.save(checkpoint, path)
+    logger.info(f"Save checkpoint: {path}")
+
+
+def load_checkpoint(
+        path: Union[str, Path],
+        model: nn.Module,
+        optimizer: Optional[optim.Optimizer] = None,
+        scheduler: Optional[Any] = None,
+        scaler: Optional[Any] = None,
+        device: Optional[torch.device] = None,
+        strict: bool = True,
+) -> Dict[str,Any]:
+    """Load a training checkpoint. Returns dict with epoch, step, and extra_state.
+    
+    The returned 'epoch' is the epoch to resume training from (0-indexed).
+    If no checkpoint exists, returns epoch=0 to start fresh. 
+    If a checkpoint exists with epoch=N, returns epoch=N+1 to resume from the next epoch.
+    """
+    path = Path(path)
+    if not path.exists(): 
+        logger.warning(f"Checkpoint not found: {path}")
+        return {"epoch": 0, "step": 0, "resumed": False}
+    
+    map_location = device if device else "cpu"
+    checkpoint = torch.load(path,map_location=map_location, weights_only=False)
+
+    # Handle compiled model state dicts 
+    state_dict = checkpoint.get("model_state_dict", {})
+    state_dict = {k.replace("_orig_mod.",""): v for k,v in state_dict.items()}
+
+    model.load_state_dict(state_dict, strict=strict)
+    logger.info(f"Loaded model state from: {path}")
+
+    if optimizer is not None and "Optimizer_state_dict" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        logger.info("Restored optimizer state")
+
+    if scheduler is not None and "scheduler_state_dict" in checkpoint:
+        optimizer.load_state_dict(checkpoint["scheduler_state_dict"])
+        logger.info("Restored scheduler state")
+
+    if scaler is not None and "scaler_state_dict" in checkpoint:
+        scaler.load_state_dict(checkpoint["scaler_state_dict"])
+        logger.info("Restored scaler state")
+
+    return {
+        "epoch": checkpoint.get("epoch",0) + 1, # Resume from next epoch 
+        "step": checkpoint.get("step", 0),
+        "resumed": True,
+        **{
+            k: v
+            for k, v in checkpoint.items()
+            if k 
+            not in [
+                "model_state_dict",
+                "optimizer_state_dict",
+                "scheduler_state_dict",
+                "scaler_state_dict",
+                "epoch",
+                "step"
+            ]
+        }
+    }
 
 def load_config(
         config_path: Union[str,Path],

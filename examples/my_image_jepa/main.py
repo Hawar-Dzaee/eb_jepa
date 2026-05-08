@@ -15,12 +15,13 @@ from lars import LARS
 from scheduler import WarmupCosineScheduler
 from log_utils import get_logger
 from training_utils import (
+    get_default_dev_name,
     load_config,
     setup_device,
     setup_seed,
-    get_default_dev_name,
     get_exp_name,
     get_unified_experiment_dir,
+    load_checkpoint,
     setup_wandb,
     log_data_info,
     log_model_info,
@@ -33,7 +34,7 @@ from dataset import (
     get_val_transforms
 )
 
-from losses import VICRegLoss
+from losses import VICRegLoss, BCS
 
 logger = get_logger(__name__)
 
@@ -228,3 +229,14 @@ def run(
         loss_fn = VICRegLoss(std_coeff=cfg.loss.std_coeff, cov_coeff=cfg.loss.cov_coeff)
     elif cfg.loss.type == "bcs":
         loss_fn = BCS(lmbd=cfg.loss.lmbd)
+
+    
+    # Load checkpoint if requested 
+    start_epoch = 0 
+    if cfg.meta.get("load_model"):
+        ckpt_path = exp_dir / cfg.meta.get("load_checkpoint", "latest.pth.tar")
+        ckpt_info = load_checkpoint(ckpt_path,model,optimizer,device= device)
+        start_epoch = ckpt_info.get("epoch",0)
+        if "linear_probe_state_dict" in ckpt_info:
+            linear_probe.load_state_dict(ckpt_info["linear_probe_state_dict"])
+            
