@@ -2,6 +2,7 @@ import os
 import time 
 from pathlib import Path 
 
+import fire 
 import torch 
 import torch.nn as nn 
 from torch.amp import GradScaler 
@@ -11,22 +12,25 @@ from torchvision.models import VisionTransformer
 import wandb
 from omegaconf import OmegaConf
 
-from model import ResNet18,ImageSSL, LinearProbe
+from model import ResNet18,ImageSSL
 from lars import LARS
 from scheduler import WarmupCosineScheduler
 from log_utils import get_logger
 from training_utils import (
     get_default_dev_name,
     load_config,
-    setup_device,
-    setup_seed,
     get_exp_name,
     get_unified_experiment_dir,
     load_checkpoint,
-    setup_wandb,
     log_data_info,
+    log_epoch,
     log_model_info,
     log_cofig,
+    save_checkpoint,
+    setup_device,
+    setup_seed,
+    setup_wandb,
+
 )
 from dataset import (
     ImageDataset,
@@ -35,6 +39,7 @@ from dataset import (
 )
 from losses import VICRegLoss, BCS
 from engine import train_epoch
+from eval import LinearProbe, evaluate_linear_probe
 
 logger = get_logger(__name__)
 
@@ -265,4 +270,60 @@ def run(
         )
 
         # Evaluate linear probe on validation set 
-        val_acc, val_loss = evaluate_linear_probe()
+        val_acc, val_loss = evaluate_linear_probe(
+            model, linear_probe, val_loader, device, use_amp
+        )
+
+        # Log metrics - dynamically add train_prefix to all train_metrics keys
+        log_dict = {"epoch": epoch}
+        for key, value in train_metrics.items():
+            log_dict[f'train_{key}'] = value 
+        log_dict["val_loss"] = val_loss
+        log_dict["val_acc"] = val_acc
+        log_dict["learning_rate"] = optimizer.param_groups[0]["lr"]
+
+        if wandb_run:
+            wandb.log(log_dict)
+
+        # Log progress 
+        if epoch % cfg.logging.log_every == 0:
+            elapsed = time.time() - start_time
+            log_epoch(
+                epoch,
+                {
+                    "loss": train_metrics["loss"],
+                    "val_acc": val_acc,
+                    "lr": optimizer.param_groups[0]["lr"],
+                },
+                total_epochs=cfg.optim.epochs,
+                elapsed_time=elapsed
+            )
+        
+        # Save checkpoint
+        save_checkpoint(
+            exp_dir / "latest.pth.tar",
+            model = model,
+            optimizer=optimizer,
+            epoch=epoch,
+            scaler=scaler,
+            linear_probe_state_dict=linear_probe.state_dict(),
+            linear_val_acc=val_acc
+        )
+        if epoch % cfg.logging.save_every == 0 and epoch > 0:
+            save_checkpoint(
+                exp_dir / f"epoch_{epoch}.pth.tar",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                scaler=scaler,
+                linear_probe_state_dict=linear_probe.state_dict(),
+                linear_val_acc=val_acc
+            )
+
+    logger.info("Training completed!")
+    if wandb_run:
+        wandb.finish()
+
+
+if __name__ == "__main__":
+    fire.Fire(run)

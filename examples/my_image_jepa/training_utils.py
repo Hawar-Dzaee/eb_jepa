@@ -16,9 +16,9 @@ logger = get_logger(__name__)
 
 
 def setup_device(device: str = "auto") -> torch.device:
-    """Set up the compute device. Options: 'aut', 'cuda', or 'cpu'."""
+    """Set up the compute device. Options: 'auto', 'cuda', or 'cpu'."""
     if device == "auto":
-        device - "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     device = torch.device(device)
     logger.info(f"Using device: {device}")
     return device
@@ -177,7 +177,7 @@ def save_checkpoint(
     checkpoint.update(extra_state)
 
     torch.save(checkpoint, path)
-    logger.info(f"Save checkpoint: {path}")
+    logger.info(f"Saved checkpoint: {path}")
 
 
 def load_checkpoint(
@@ -210,12 +210,12 @@ def load_checkpoint(
     model.load_state_dict(state_dict, strict=strict)
     logger.info(f"Loaded model state from: {path}")
 
-    if optimizer is not None and "Optimizer_state_dict" in checkpoint:
+    if optimizer is not None and "optimizer_state_dict" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         logger.info("Restored optimizer state")
 
     if scheduler is not None and "scheduler_state_dict" in checkpoint:
-        optimizer.load_state_dict(checkpoint["scheduler_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         logger.info("Restored scheduler state")
 
     if scaler is not None and "scaler_state_dict" in checkpoint:
@@ -272,7 +272,7 @@ def load_config(
     return cfg 
 
 
-def get_checkpoint_dir() -> Path:
+def get_checkpoints_dir() -> Path:
     """Get the base checkpoints directory from EBJEPA_CKPTS env variable."""
     return Path(os.environ.get("EBJEPA_CKPTS", "checkpoints"))
 
@@ -287,7 +287,7 @@ def get_unified_experiment_dir(
 ) -> Path:
     """Create experiment dir: {base_dir}/{example_name}/{sweep_name}/{exp_name}_seed{seed}."""
     if base_dir is None:
-        base_dir = get_checkpoint_dir()
+        base_dir = get_checkpoints_dir()
 
     # Convert to absolute path to avoid issues when cwd changes (e.g. after os.chdir)
     exp_dir = (
@@ -336,7 +336,36 @@ def get_exp_name(example_name: str, cfg) -> str:
         )
     else:
         return "exp"
+    
+def format_metrics(metrics: Dict[str, float], precision: int = 4) -> str:
+    """Format metrics dict as 'loss=0.1234 | acc=95.12'."""
+    parts = []
+    for k, v in metrics.items():
+        if isinstance(v, float):
+            parts.append(f"{k}={v:.{precision}f}")
+        else:
+            parts.append(f"{k}={v}")
+    return " | ".join(parts)
 
+
+def log_epoch(
+        epoch: int,
+        metrics: Dict[str, float],
+        total_epochs: Optional[int] = None,
+        elapsed_time: Optional[float] = None,
+) -> None:
+    """Log epoch summary: 📊 [Epoch 001/100] metrics1-val1 | metric2=val2 | time=123.4s."""
+    if total_epochs:
+        prefix = f"[Epoch {epoch:03d}/{total_epochs}]"
+    else:
+        prefix = f"[Epoch {epoch:03d}]"
+    
+    metrics_str = format_metrics(metrics)
+
+    if elapsed_time is not None:
+        logger.info(f"📊 {prefix} {metrics_str} | time={elapsed_time:.1f}s")
+    else:
+        logger.info(f"📊 {prefix} {metrics_str}")
 
 def log_model_info(model: nn.Module, param_counts: Dict[str, int]) -> None:
     """Log model structure and parameter counts"""
@@ -363,7 +392,7 @@ def log_data_info(
             f"📦 Data: {dataset_name} | {num_batches} batches x {batch_size} samples"
         )
 
-def log_cofig(cfg: Union[Dict,DictConfig], title: str = "Run Configuration") -> None:
+def log_config(cfg: Union[Dict,DictConfig], title: str = "Run Configuration") -> None:
     """Log configuration in a readable format."""
     logger.info("=" * 60)
     logger.info(f"⚙️  {title}:")
