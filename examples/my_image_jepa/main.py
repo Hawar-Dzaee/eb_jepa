@@ -25,7 +25,7 @@ from training_utils import (
     log_data_info,
     log_epoch,
     log_model_info,
-    log_cofig,
+    log_config,
     save_checkpoint,
     setup_device,
     setup_seed,
@@ -44,7 +44,7 @@ from eval import LinearProbe, evaluate_linear_probe
 logger = get_logger(__name__)
 
 def run(
-        fnmae: str = "examples/my_image_jepa/default.yaml",
+        fnmae: str = "cfgs/default.yaml",
         cfg = None,
         folder = None,
         **overrides
@@ -187,16 +187,16 @@ def run(
     model = model.to(device)
 
     # Log model structure and parameters
-    encoder_params = sum(p.numel for p in backbone.parameters())
+    encoder_params = sum(p.numel() for p in backbone.parameters())
     projector_params = (
-        sum(p.numel() for p in model.projetor.parameters())
+        sum(p.numel() for p in model.projector.parameters())
         if cfg.model.use_projector
         else 0 
     )
     log_model_info(model, {"encoder": encoder_params, "projector": projector_params})
 
     # Log Configuration
-    log_cofig(cfg)
+    log_config(cfg)
 
     # Initialize Linear probe 
     linear_probe = LinearProbe(feature_dim=features_dim,num_classes=10).to(device)
