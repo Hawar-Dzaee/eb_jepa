@@ -1,0 +1,17 @@
+# Video JEPA Training Configuration 
+# Train a self-supervised video prediction model on Moving MNIST 
+
+
+
+
+
+
+
+
+
+
+model:
+  # Encoder (ResNet 5)
+  dobs: 1             # Input channels (grayscale)        : [d]imensions of [obs]ervation
+  henc: 32            # Hidden dimension in encoder       : [h]idden width of the [enc]oder
+  dstc: 16            # Output representation dimension   : out representation / latent dimension : Not verified..
