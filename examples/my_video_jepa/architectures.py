@@ -73,6 +73,29 @@ class ResNet5(TemporalBatchMixin,nn.Module):
         return out 
     
 
+class SimplePredictor(nn.Module): 
+    """Wrapper that concatenates states and actions channel-wise before prediction."""
+
+    def __init__(self,predictor, context_length):
+        super().__init__()
+        self.predictor = predictor
+        self.is_rnn = predictor.is_rnn
+        self.context_length = context_length
+
+    def forward(self, x, a):
+        return self.predictor(torch.cat([x,a], dim=1))
+    
+
+class StateOnlyPredictor(SimplePredictor): 
+    """Wrapper for a simple predictor which concatenates states and actions channel wise.""" 
+
+    def forward(self, x, a):
+        # action not used on purpose 
+        prev_state = x[:, :, :-1] # [B, C, T-1, H, W]
+        next_state = x[:, :, 1:]  # [B, C, T-1, H, W]
+        combined_xa = torch.cat([prev_state, next_state], dim= 1)
+        return self.predictor(combined_xa)
+    
 
 class ResUNet(TemporalBatchMixin, nn.Module): 
     """
@@ -118,5 +141,53 @@ class ResUNet(TemporalBatchMixin, nn.Module):
                 x, size=ref.shape[-2:], mode="bilinear", align_corners=False
             )
         return x 
+    
+    def _forward(self,x):
+        x0 = self.relu(self.bn1(self.conv1(x)))
+
+        # Encoder with skips 
+        s1 = self.enc1(x0)  # h
+        s2 = self.enc2(s1)  # 2h
+        s3 = self.enc3(s2)  # 4h
+        b = self.bott(s3)   # 8h
+
+        # Decoder stage 3 
+        d3 = self.up3(b)
+        d3 = self._match_size(d3, s3)
+        d3 = torch.cat([d3,s3], dim=1) # 4h + 4h = 8h 
+        d3 = self.dec3(d3)  # → 4h
+
+        # Decoder stage 2
+        d2 = self.up2(d3)
+        d2 = self._match_size(d2,s2)
+        d2 = torch.cat([d2,s2], dim=1)
+        d2 = self.dec2(2)
+
+        # Decoder stage 1
+        d1 = self.up1(d2)
+        d1 = self._match_size(d1,s1)
+        d1 = torch.cat([d1,s1], dim=1)  # h + h = 2h 
+        d1 = self.dec1(d1) # → h
+
+        out = self.head(d1) # → out_d channels
+        return out 
 
 
+
+class Projector(nn.Module): 
+    """MLP projector built from a spec string like '256-512-128'."""
+
+    def __init__(self,mlp_spec): 
+        super().__init__()
+        layers = []
+        f = list(map(int, mlp_spec.split("-")))
+        for i in range(len(f) - 2):
+            layers.append(nn.Linear(f[i], f[i + 1]))
+            layers.append(nn.BatchNorm1d(f[i + 1]))
+            layers.append(nn.ReLU(True))
+        layers.append(nn.Linear(f[-2], f[-1], bias=False))
+        self.net = nn.Sequential(*layers)
+        self.out_dim = f[-1]    # Store output dimension as attribute
+
+    def forward(self, x):
+        return self.net(x)
