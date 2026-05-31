@@ -102,7 +102,7 @@ class MovingMNISTDet(MovingMNIST):
                 boxes = return_bbox(frames[t])
                 for x1, y1, x2, y2 in boxes:
                     x, y = (x1 + x2) / 2, (y1 +y2) / 2 
-                    px = int(x / frames.shape[-1] * map_size)
+                    px = int(x / frames.shape[-1] * map_size)   # (x/frames.shpe[-1]) * map_size
                     py = int(y / frames.shape[-2] * map_size)
                     self.digit_locations[idx, t, py, px] = 1
 
