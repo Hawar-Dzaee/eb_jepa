@@ -70,7 +70,9 @@ class JEPA(JEPAbase):
         - Training video_jepa: unroll(x, None, nsteps, unroll_mode="parallel", compute_loss=True)
         - Training ac_video_jepa with RNN: unroll(x, a, nsteps, unroll_mode="autoregressive",
           ctxt_window_time=k, compute_loss=False)
-        - Inference like infern(): unroll(x, a, nsteps, unroll_model="parallel",
+        - Planning with ac_video_jepa: unroll(x, a, nsteps, unroll_mode="autoregressive",
+          ctxt_window_time=k, compute_loss=False)
+        - Inference like infern(): unroll(x, a, nsteps, unroll_mode="parallel",
           compute_loss=False, return_all_steps=True)
 
         Predictor behavior:
@@ -85,39 +87,39 @@ class JEPA(JEPAbase):
           Each step: takes last ctxt_window_time states, predicts next, appends to sequence.
           Output: [B, D, T_context + nsteps, H', W'] (context + predictions appended).
           Best for planning/inference where future ground truth is not available.
-          Note: RNN preictors (is_rnn=True) are a special case with ctxt_window_time=1.
+          Note: RNN predictors (is_rnn=True) are a special case with ctxt_window_time=1.
 
-          Args:
-            Observations: [B, C, T, H, W] - observation sequence
+        Args:
+            observations: [B, C, T, H, W] - observation sequence
                 For training (compute_loss=True): full trajectory with ground truth
-                For planning (compute_loss=False): context frames only 
+                For planning (compute_loss=False): context frames only
             actions: [B, A, T_actions] - actions sequence, or None for state-only prediction
-                T_actions >= nsteps required for autoregressive mode 
+                T_actions >= nsteps required for autoregressive mode
             nsteps: number of prediction steps
             unroll_mode: "parallel" or "autoregressive"
-                - "parallel": Process all timesteps, refeed GT context on left 
+                - "parallel": Process all timesteps, refeed GT context on left
                 - "autoregressive": Step-by-step, append predictions on right
             ctxt_window_time: Context window size for autoregressive mode.
                 For RNN predictors (is_rnn=True), this is effectively 1.
-            compute_loss: Whether to compute losses(requires ground truth observations)
+            compute_loss: Whether to compute losses (requires ground truth observations)
             return_all_steps: If True, return list of predictions at each step (like infern).
-                If False, return only the final predicted states. 
+                If False, return only the final predicted states.
 
-            Returns: 
-                Tuple of (predicted_states, losses) where: 
-                - If return_all_steps=False:
-                  predicted_states: [B, D, T_out, H', W'] - final predicted state sequence
-                - If return_all_steps=True:
-                  predicted_states: List[Tensor] of length nsteps, each [B, D, T_out, H', W']
-                - losses: None if compute_loss=False, otherwise tuple of 5 elements:
-                  (total_loss, reg_loss, reg_loss_unweighted, reg_loss_dict, pred_loss)
+        Returns:
+            Tuple of (predicted_states, losses) where:
+            - If return_all_steps=False:
+              predicted_states: [B, D, T_out, H', W'] - final predicted state sequence
+            - If return_all_steps=True:
+              predicted_states: List[Tensor] of length nsteps, each [B, D, T_out, H', W']
+            - losses: None if compute_loss=False, otherwise tuple of 5 elements:
+              (total_loss, reg_loss, reg_loss_unweighted, reg_loss_dict, pred_loss)
         """
         state = self.encoder(observations)
         context_length = getattr(self.predictor, "context_length", 0)
 
         # Compute regularization loss if needed 
         if compute_loss:
-            rloss = rloss_unweight, rloss_dict = self.regularizer(state,actions)
+            rloss, rloss_unweight, rloss_dict = self.regularizer(state,actions)
             ploss = 0.0
         else:
             rloss = rloss_unweight = rloss_dict = ploss = None 
@@ -135,7 +137,7 @@ class JEPA(JEPAbase):
         if unroll_mode == "parallel":
             predicted_states = state
             for _ in range(nsteps):
-                # Predic all timesteps, discard last (no target for it)
+                # Predict all timesteps, discard last (no target for it)
                 predicted_states = self.predictor(predicted_states, actions_encoded)[
                     :, :, :-1
                 ]
@@ -162,7 +164,7 @@ class JEPA(JEPAbase):
             predicted_states = state[:, :, :effective_ctxt_window]
             for i in range(nsteps): 
                 # Take last ctxt_window_time states
-                context_states = state[:, :, -effective_ctxt_window:]
+                context_states = predicted_states[:, :, -effective_ctxt_window:]
                 # Take corresponding actions
                 if actions_encoded is not None: 
                     context_actions = actions_encoded[
@@ -179,10 +181,10 @@ class JEPA(JEPAbase):
                     all_steps.append(predicted_states.clone())
                 if compute_loss:
                     ploss += (
-                        self.predcost(pred_step, state[:, :, i + 1, i + 2 ]) / nsteps
+                        self.predcost(pred_step, state[:, :, i + 1 : i + 2 ]) / nsteps
                     )
         else: 
-            raise ValueError(f"Unkown unroll_mode: {unroll_mode}")
+            raise ValueError(f"Unknown unroll_mode: {unroll_mode}")
         
         # compute total loss and return 
         if compute_loss: 
@@ -197,3 +199,34 @@ class JEPA(JEPAbase):
         else: 
             return predicted_states, losses 
         
+
+class JEPAProbe(nn.Module):
+    """JEPA with a trainable prediction head. The JEPA encoder is kept fixed."""
+
+    def __init__(self, jepa, head, hcost):
+        """Initialize with a frozen JEPA, prediction head, and head loss function."""
+        super().__init__()
+        self.jepa = jepa
+        self.head = head
+        self.hcost = hcost 
+
+    @torch.no_grad()
+    def infer(self, observation):
+        """Encode observations through JEPA and apply the prediction head."""
+        state = self.jepa.encode(observation)
+        return self.head(state)
+    
+    @torch.no_grad()
+    def apply_head(self, embeddings):
+        """
+        Decode embeddings using the head. 
+        This is useful for generating predictions from an unrolling of the predictor, for example.
+        """
+        return self.head(embeddings)
+    
+    def forward(self, observations, targets): 
+        """Forward pass for training the head (JEPA encoder gradients are detached)."""
+        with torch.no_grad():
+            state = self.jepa.encode(observations)
+        output = self.head(state.detach())
+        return self.hcost(output, targets)
