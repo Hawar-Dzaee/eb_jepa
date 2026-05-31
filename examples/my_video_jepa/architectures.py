@@ -1,8 +1,42 @@
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
+from sklearn.metrics import average_precision_score
 
-from nn_utils import TemporalBatchMixin
+from nn_utils import TemporalBatchMixin, init_module_weights
+
+
+class conv3d2(nn.Sequential):
+    """Simple 3D convnet with 2 layers."""
+
+    # tk : temporal kernel 
+    # ts : temportal stride 
+    # sk : spatial kernel 
+    # ss : spatial stride 
+
+    def __init__(self, in_d, h_d, out_d, tk, ts, sk, ss, pad): 
+        super(conv3d2, self).__init__(
+            nn.Conv3d(
+                in_d, h_d, kernel_size=(tk, sk, sk), stride=(1, 1, 1), padding=pad
+            ),
+            nn.ReLU(),
+            nn.Conv3d(
+                h_d, out_d, kernel_size=(tk, sk, sk), stride=(ts, ss, ss), padding=pad
+            )
+        )
+        self.apply(init_module_weights)
+        self.input_dim = in_d
+        self.hidden_dim = h_d
+        self.output_dim = out_d
+        # t_shift is the index (in the time dimension) of the first output
+        # cannot see its corresponding input 
+        if pad == "valid":
+            self.t_shift = 2 * tk - 1
+        elif pad == "same":
+            self.t_shift = 2 * (tk - 1)
+        else:
+            raise NameError("invalid padding for con3d2. Must be 'valid' or 'same'")
+
 
 class ResidualBlock(nn.Module):
     """Standard residual block with skip connection."""
@@ -191,3 +225,46 @@ class Projector(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+    
+
+class DetHead(nn.Module):
+    """Detection head that pools features and predicts binary maps."""
+    # why are we using `nn.Sequential` to wrap `nn.conv3d2`, when itself inherits from `nn.Sequential` ? 
+    # because it is easy to extend. 
+    def __init__(self, in_d, h_d, out_d):
+        super().__init__()
+        self.head = nn.Sequential(conv3d2(in_d, h_d, out_d, 1, 1, 3, 1, "same"))  # easy to add stuff to the container
+        self.apply(init_module_weights)
+
+    def forward(self, x): 
+        """Forward pass on predictor output of shape (B, C, T, H, W)."""
+        # (Batch, Feature, Time, Height, Width)
+        # [8, 8, T, 8, 8]
+        x = [F.adaptive_avg_pool2d(x[:, :, t], (8,8)) for t in range(x.shape[2])]
+        x = torch.stack(x, 2)
+        # [8, T, 8, 8]
+        x = self.head(x).squeeze(1)
+
+        return torch.sigmoid(x)
+    
+    @torch.no_grad()
+    def score(self, preds, targets): 
+
+        scores = []
+        for T in range(len(preds) - 1):
+            x = preds[T]
+            x = [F.adaptive_avg_pool2d(x[:, :, t], (8,8)) for t in range(x.shape[2])]
+            x = torch.stack(x, 2)
+            x = self.head(x).sqeueeze(1)
+
+            y = targets[:, T:]
+            x = x[:, T:]
+
+            ap = average_precision_score(
+                y.flatten().detach().long().cpu().numpy(),
+                x.flatten().detach().cpu().numpy(),
+                average="weighted"
+            )
+            scores.append(ap)
+        
+        return scores 
