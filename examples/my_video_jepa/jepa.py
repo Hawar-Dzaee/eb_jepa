@@ -9,9 +9,9 @@ class JEPAbase(nn.Module):
         """Initialize JEPAbase with encoder, action encoder, and predictor."""
         super().__init__()
         # Observation Encoder 
-        self.encoder = encoder
+        self.encoder = encoder  # ResNet5
         # Action Encoder 
-        self.action_encoder = aencoder
+        self.action_encoder = aencoder  # StateOnlyPredictor(ResUNet)
         # Predictor
         self.predictor = predictor
         self.single_unroll = getattr(self.predictor, "is_rnn",False)
@@ -33,7 +33,7 @@ class JEPA(JEPAbase):
     def __init__(self, encoder, aencoder, predictor, regularizer, predcost):
         """Initialize JEPA with regularizer and prediction cost in addition to base components."""
         super().__init__(encoder, aencoder, predictor)
-        self.regularizer = regularizer
+        self.regularizer = regularizer  # VCLoss 
         self.predcost = predcost
         self.ploss = 0 
         self.rloss = 0 
@@ -53,10 +53,10 @@ class JEPA(JEPAbase):
     
     def unroll(
             self,
-            observations,
-            actions,
-            nsteps=1,
-            unroll_mode="parallel",
+            observations,   # "video"
+            actions,        # None 
+            nsteps=1,       # 4 
+            unroll_mode="parallel", # parallel 
             ctxt_window_time=1,
             compute_loss=True,
             return_all_steps=False
@@ -114,24 +114,24 @@ class JEPA(JEPAbase):
             - losses: None if compute_loss=False, otherwise tuple of 5 elements:
               (total_loss, reg_loss, reg_loss_unweighted, reg_loss_dict, pred_loss)
         """
-        state = self.encoder(observations)
-        context_length = getattr(self.predictor, "context_length", 0)
+        state = self.encoder(observations)  # ResNet5(videos)
+        context_length = getattr(self.predictor, "context_length", 0)   # StateOnlyPredictor().context_length
 
         # Compute regularization loss if needed 
-        if compute_loss:
-            rloss, rloss_unweight, rloss_dict = self.regularizer(state,actions)
+        if compute_loss:    # True 
+            rloss, rloss_unweight, rloss_dict = self.regularizer(state,actions) # VCLoss forward
             ploss = 0.0
         else:
             rloss = rloss_unweight = rloss_dict = ploss = None 
         
         # Encode actions
-        if actions is not None:
+        if actions is not None: # actions is None 
             actions_encoded = self.action_encoder(actions)
         else: 
             actions_encoded = None 
 
         # Collect all steps if requested 
-        all_steps = [] if return_all_steps else None 
+        all_steps = [] if return_all_steps else None    # all_steps = None 
 
         # Parallel mode: process all timesteps at once, refeed GT context 
         if unroll_mode == "parallel":
@@ -142,7 +142,7 @@ class JEPA(JEPAbase):
                     :, :, :-1
                 ]
                 # Collect step if requested 
-                if return_all_steps:
+                if return_all_steps:    # False 
                     all_steps.append(predicted_states)
                 # Refeed ground truth context on the left 
                 predicted_states = torch.cat(
@@ -194,7 +194,7 @@ class JEPA(JEPAbase):
             losses = None 
         
         # Return all steps or just final state 
-        if return_all_steps: 
+        if return_all_steps:    # None 
             return all_steps, losses 
         else: 
             return predicted_states, losses 

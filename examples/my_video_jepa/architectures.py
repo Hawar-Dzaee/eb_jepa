@@ -128,7 +128,7 @@ class StateOnlyPredictor(SimplePredictor):
         prev_state = x[:, :, :-1] # [B, C, T-1, H, W]
         next_state = x[:, :, 1:]  # [B, C, T-1, H, W]
         combined_xa = torch.cat([prev_state, next_state], dim= 1)
-        return self.predictor(combined_xa)
+        return self.predictor(combined_xa)  # ResUNet.forward
     
 
 class ResUNet(TemporalBatchMixin, nn.Module): 
@@ -195,7 +195,7 @@ class ResUNet(TemporalBatchMixin, nn.Module):
         d2 = self.up2(d3)
         d2 = self._match_size(d2,s2)
         d2 = torch.cat([d2,s2], dim=1)
-        d2 = self.dec2(2)
+        d2 = self.dec2(d2)
 
         # Decoder stage 1
         d1 = self.up1(d2)
