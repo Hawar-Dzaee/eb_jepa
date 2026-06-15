@@ -33,8 +33,8 @@ class JEPA(JEPAbase):
     def __init__(self, encoder, aencoder, predictor, regularizer, predcost):
         """Initialize JEPA with regularizer and prediction cost in addition to base components."""
         super().__init__(encoder, aencoder, predictor)
-        self.regularizer = regularizer  # VCLoss 
-        self.predcost = predcost
+        self.regularizer = regularizer  # VCLoss(std_coeff=10.0, cov_coeff=100.0, proj=projector) 
+        self.predcost = predcost        # SquareLossSeq(projector) 
         self.ploss = 0 
         self.rloss = 0 
     
@@ -147,7 +147,7 @@ class JEPA(JEPAbase):
                 # Refeed ground truth context on the left 
                 predicted_states = torch.cat(
                     (state[:, :, :context_length], predicted_states), dim=2 
-                )
+                ) 
                 if compute_loss:
                     ploss += self.predcost(state, predicted_states) / nsteps
 
@@ -187,7 +187,7 @@ class JEPA(JEPAbase):
             raise ValueError(f"Unknown unroll_mode: {unroll_mode}")
         
         # compute total loss and return 
-        if compute_loss: 
+        if compute_loss: # True
             loss = rloss + ploss
             losses = (loss, rloss, rloss_unweight, rloss_dict, ploss)
         else: 
