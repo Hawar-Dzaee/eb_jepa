@@ -25,7 +25,7 @@ class JEPAbase(nn.Module):
     @torch.no_grad()
     def encode(self, observations):
         """Encode a sequence of observations and return the encoder output."""
-        return self.encoder(observations)
+        return self.encoder(observations)   # ResNet 5
 
 class JEPA(JEPAbase):
     """Trainable JEPA with prediction loss and anti-collapse regularizer."""
@@ -189,6 +189,7 @@ class JEPA(JEPAbase):
         # compute total loss and return 
         if compute_loss: # True
             loss = rloss + ploss
+                 #jepa_loss,vc_loss
             losses = (loss, rloss, rloss_unweight, rloss_dict, ploss)
         else: 
             losses = None 
@@ -206,9 +207,9 @@ class JEPAProbe(nn.Module):
     def __init__(self, jepa, head, hcost):
         """Initialize with a frozen JEPA, prediction head, and head loss function."""
         super().__init__()
-        self.jepa = jepa
-        self.head = head
-        self.hcost = hcost 
+        self.jepa = jepa    # jepa instance 
+        self.head = head    # decoder[ImageDecoder] / dethead 
+        self.hcost = hcost  # MSE / BCELoss 
 
     @torch.no_grad()
     def infer(self, observation):
@@ -228,5 +229,5 @@ class JEPAProbe(nn.Module):
         """Forward pass for training the head (JEPA encoder gradients are detached)."""
         with torch.no_grad():
             state = self.jepa.encode(observations)
-        output = self.head(state.detach())
+        output = self.head(state.detach())  # detach is redundant [already handle it by no_gard()]
         return self.hcost(output, targets)

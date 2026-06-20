@@ -231,9 +231,9 @@ class DetHead(nn.Module):
     """Detection head that pools features and predicts binary maps."""
     # why are we using `nn.Sequential` to wrap `nn.conv3d2`, when itself inherits from `nn.Sequential` ? 
     # because it is easy to extend. 
-    def __init__(self, in_d, h_d, out_d):
-        super().__init__()
-        self.head = nn.Sequential(conv3d2(in_d, h_d, out_d, 1, 1, 3, 1, "same"))  # easy to add stuff to the container
+    def __init__(self, in_d, h_d, out_d):   # 16,32,1
+        super().__init__()                                   
+        self.head = nn.Sequential(conv3d2(in_d, h_d, out_d, tk = 1, ts = 1, sk = 3, ss = 1, padding = "same"))  # easy to add stuff to the container
         self.apply(init_module_weights)
 
     def forward(self, x): 
