@@ -11,9 +11,9 @@ class JEPAbase(nn.Module):
         # Observation Encoder 
         self.encoder = encoder  # ResNet5
         # Action Encoder 
-        self.action_encoder = aencoder  # StateOnlyPredictor(ResUNet)
+        self.action_encoder = aencoder  
         # Predictor
-        self.predictor = predictor
+        self.predictor = predictor # StateOnlyPredictor(predictor = ResUNet,context_length = 2)
         self.single_unroll = getattr(self.predictor, "is_rnn",False)
 
     def save(self, file):
@@ -114,7 +114,7 @@ class JEPA(JEPAbase):
             - losses: None if compute_loss=False, otherwise tuple of 5 elements:
               (total_loss, reg_loss, reg_loss_unweighted, reg_loss_dict, pred_loss)
         """
-        state = self.encoder(observations)  # ResNet5(videos)
+        state = self.encoder(observations)  # ResNet5(video)
         context_length = getattr(self.predictor, "context_length", 0)   # StateOnlyPredictor().context_length
 
         # Compute regularization loss if needed 
