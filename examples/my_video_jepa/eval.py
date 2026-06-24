@@ -46,7 +46,7 @@ def visualize_videos(
     """
 
     x = batch["video"]
-    x_jepa = jepa.encoder(x)
+    x_jepa = jepa.encoder(x)    # pass it to ResNet5
 
     T = x.shape[2]
     preds, _ = jepa.unroll(
@@ -59,5 +59,5 @@ def visualize_videos(
     )
 
     # One step predictions
-    one_step_pred = x_jepa[:, :, 1:].clone()
+    one_step_pred = x_jepa[:, :, 1:].clone() # (32, 16, 9, 64, 64)
 

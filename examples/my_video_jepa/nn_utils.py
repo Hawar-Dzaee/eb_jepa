@@ -49,7 +49,7 @@ class TemporalBatchMixin:
         Forward pass supporting both 4D and 5D tensors. 
 
         Args:
-            x: Input tensor of shape [B, C, H, W] or [B, C, T, H, W]
+            x: Input tensor of shape [B, C, H, W] or [B, C, T, H, W] (note : Batch size is nonnegotiable)
 
         Returns: 
             Output tensor with same batch and temporal dimensions as input

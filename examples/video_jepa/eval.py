@@ -48,7 +48,7 @@ def visualize_videos(
     """
 
     x = batch["video"]
-    x_jepa = jepa.encoder(x)    # pass it to ResNet5
+    x_jepa = jepa.encoder(x)    
 
     T = x.shape[2]
     preds, _ = jepa.unroll(
