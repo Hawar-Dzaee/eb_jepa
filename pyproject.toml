@@ -37,6 +37,7 @@ dependencies = [
     "pymunk",
     "omegaconf",
     "ruamel.yaml",
+    "ipykernel>=7.3.0",
 ]
 requires-python = "==3.12.*"
 

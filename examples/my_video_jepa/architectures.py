@@ -233,7 +233,7 @@ class DetHead(nn.Module):
     # because it is easy to extend. 
     def __init__(self, in_d, h_d, out_d):   # 16,32,1
         super().__init__()                                   
-        self.head = nn.Sequential(conv3d2(in_d, h_d, out_d, tk = 1, ts = 1, sk = 3, ss = 1, padding = "same"))  # easy to add stuff to the container
+        self.head = nn.Sequential(conv3d2(in_d, h_d, out_d, tk = 1, ts = 1, sk = 3, ss = 1, pad = "same"))  # easy to add stuff to the container
         self.apply(init_module_weights)
 
     def forward(self, x): 
@@ -249,13 +249,15 @@ class DetHead(nn.Module):
     
     @torch.no_grad()
     def score(self, preds, targets): 
+        # preds : List[Tensor] | len(List) = nsteps = T -2 = 8 | Tensor.shape is (B, C, T - 2, H, W) = (32,16,8,64,64)
+        # targets[:, 2:] :  Tensor | Tensor.shape is (B, T, H, W) = (32, 8, 8, 8)
 
         scores = []
-        for T in range(len(preds) - 1):
-            x = preds[T]
+        for T in range(len(preds) - 1): # we don't have target for the last prediction, Hence skipped. 
+            x = preds[T]    # (B, C, T - 2, H, W) = (32,16,8,64,64)
             x = [F.adaptive_avg_pool2d(x[:, :, t], (8,8)) for t in range(x.shape[2])]
             x = torch.stack(x, 2)
-            x = self.head(x).sqeueeze(1)
+            x = self.head(x).squeeze(1) # (B, T, H, W) = (32, 10, 8, 8)
 
             y = targets[:, T:]
             x = x[:, T:]
