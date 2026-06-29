@@ -257,7 +257,7 @@ class DetHead(nn.Module):
             x = preds[T]    # (B, C, T - 2, H, W) = (32,16,8,64,64)
             x = [F.adaptive_avg_pool2d(x[:, :, t], (8,8)) for t in range(x.shape[2])]
             x = torch.stack(x, 2)
-            x = self.head(x).squeeze(1) # (B, T, H, W) = (32, 10, 8, 8)
+            x = self.head(x).squeeze(1) # (B, T, H, W) = (32, 8, 8, 8)
 
             y = targets[:, T:]
             x = x[:, T:]
