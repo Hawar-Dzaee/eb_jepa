@@ -67,12 +67,11 @@ def visualize_videos(
     #-------------------------------------------------------------
     # Multi-step rollouts 
     rollout = x_jepa[:, :, 1:].clone()  # (32, 16, 9, 64, 64) # GT frames 1...9, 0- can't predict it without prior context.
-    for t in range(1, T - 1):
+    for t in range(1, T - 1):   # (1, 9)
         rollout[:, :, t:] = preds[t - 1][:, :, t - 1:]  #at each time step the rollout gets overwrite it 
         # rollout ends up with autoregressive fashion, picking the diagonal of preds 
     #-------------------------------------------------------------
     rollout_reconstruction = pixel_decoder.head(rollout)    # reconstruction 
-    #-------------------------------------------------------------
     loc_prediction = detection_head.head(rollout)           # location prediction 
     #-------------------------------------------------------------
     # Location predictions overlaid over rollout as blue heatmap

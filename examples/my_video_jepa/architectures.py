@@ -253,20 +253,21 @@ class DetHead(nn.Module):
         # targets[:, 2:] :  Tensor | Tensor.shape is (B, T, H, W) = (32, 8, 8, 8)
 
         scores = []
-        for T in range(len(preds) - 1): # we don't have target for the last prediction, Hence skipped. 
+        for T in range(len(preds) - 1): # we don't have target for the last prediction, Hence skipped. len(preds) - 1 = 7
             x = preds[T]    # (B, C, T - 2, H, W) = (32,16,8,64,64)
+            # predicing digit location. 
             x = [F.adaptive_avg_pool2d(x[:, :, t], (8,8)) for t in range(x.shape[2])]
             x = torch.stack(x, 2)
             x = self.head(x).squeeze(1) # (B, T, H, W) = (32, 8, 8, 8)
 
-            y = targets[:, T:]
-            x = x[:, T:]
+            y = targets[:, T:]  
+            x = x[:, T:]        
 
             ap = average_precision_score(
                 y.flatten().detach().long().cpu().numpy(),
                 x.flatten().detach().cpu().numpy(),
                 average="weighted"
             )
-            scores.append(ap)
+            scores.append(ap)   # Note ap is calculated across T, AP(T0), AP(T1), AP(2)...
         
         return scores 
