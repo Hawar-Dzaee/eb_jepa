@@ -221,3 +221,59 @@ def run(
                 val_loader, jepa, detection_head, pixel_decoder, cfg.model.steps, device
             )
 
+            train_metrics = {
+                "epoch" : epoch,
+                "train/loss": jepa_loss.item(),
+                "train/vc_loss": regl.item(),
+                "train/pred_loss": pl.item(),
+                "train/recon_loss": recon_loss.item(),
+                "train/det_loss":det_loss.item(),
+            }
+            for k,v in regldict.items():
+                train_metrics[f"train/{k}"] = float(v)
+
+            all_metrics = {**train_metrics, **val_logs}
+
+            if wandb_run:
+                import wandb
+
+                wandb.log(all_metrics, step=global_step)
+
+            log_epoch(
+                epoch,
+                {
+                    "loss": jepa_loss.item(),
+                    "vc": regl.item(),
+                    "pred": pl.item(),
+                    "val_recon": val_logs.get("val/recon_loss", 0)
+                },
+                total_epochs=cfg.optim.epochs
+            )
+
+        # Save checkpoint
+        save_checkpoint(
+            exp_dir / "latest.pth.tar",
+            model=jepa,
+            optimizer=optimizer,
+            epoch=epoch,
+            step=global_step
+        )
+        if epoch % cfg.logging.save_every == 0 and epoch > 0:
+            save_checkpoint(
+                exp_dir / f"epoch_{epoch}.pth.tar",
+                model = jepa,
+                optimizer=optimizer,
+                epoch=epoch,
+                step=global_step
+            )
+
+    if wandb_run:
+        import wandb
+
+        wandb.finish()
+
+    logger.info("Training complete!")
+
+if __name__ == "__main__":
+    fire.Fire(run)
+
