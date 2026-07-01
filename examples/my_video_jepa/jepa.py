@@ -136,7 +136,7 @@ class JEPA(JEPAbase):
         # Parallel mode: process all timesteps at once, refeed GT context 
         if unroll_mode == "parallel":
             predicted_states = state
-            for _ in range(nsteps):
+            for _ in range(nsteps): 
                 # Predict all timesteps, discard last (no target for it)
                 predicted_states = self.predictor(predicted_states, actions_encoded)[
                     :, :, :-1
@@ -159,12 +159,13 @@ class JEPA(JEPAbase):
                     f"nsteps ({nsteps}) larger than action sequence length ({actions.size(2)})"
                 )
             # For RNN predictors, force ctxt_window_time=1 
-            effective_ctxt_window = 1 if self.single_unroll else ctxt_window_time
+            effective_ctxt_window = 1 if self.single_unroll else ctxt_window_time   # single_unroll = False by default (see ResUNet).
+            # ctxt_window_time = 1 (by default) ; there are no k:v for it in cfg.
 
-            predicted_states = state[:, :, :effective_ctxt_window]
-            for i in range(nsteps): 
+            predicted_states = state[:, :, :effective_ctxt_window]  # picks up the first T ; (32, 16, 1, 64, 64) 
+            for i in range(nsteps): # nsteps = 4 
                 # Take last ctxt_window_time states
-                context_states = predicted_states[:, :, -effective_ctxt_window:]
+                context_states = predicted_states[:, :, -effective_ctxt_window:]    # (32, 16, 0, 64, 64)   Empty 
                 # Take corresponding actions
                 if actions_encoded is not None: 
                     context_actions = actions_encoded[
@@ -173,9 +174,9 @@ class JEPA(JEPAbase):
                 else: 
                     context_actions = None 
                 # Predict and take only last timestep 
-                pred_step = self.predictor(context_states, context_actions)[:, :, -1:]
+                pred_step = self.predictor(context_states, context_actions)[:, :, -1:]  # (32, 16, 0, 64, 64)   Empty 
                 # Append predictions to sequence 
-                predicted_states = torch.cat([predicted_states, pred_step], dim=2)
+                predicted_states = torch.cat([predicted_states, pred_step], dim=2)  # (32, 16, 1, 64, 64)   
                 # Collect step if requested 
                 if return_all_steps:
                     all_steps.append(predicted_states.clone())

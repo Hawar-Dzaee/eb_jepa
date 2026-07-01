@@ -44,12 +44,12 @@ class VCLoss(nn.Module):
         cov_loss = self.cov_loss_fn(fx)
 
         loss = self.std_coeff * std_loss + self.cov_coeff * cov_loss
-        total_unweight_loss = std_loss + cov_loss
+        total_unweighted_loss = std_loss + cov_loss
         loss_dict = {
             "std_loss": std_loss.item(),
             "cov_loss": cov_loss.item(),
         }
-        return loss, total_unweight_loss, loss_dict
+        return loss, total_unweighted_loss, loss_dict
 
 
 

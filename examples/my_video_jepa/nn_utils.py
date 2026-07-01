@@ -1,4 +1,4 @@
-"""Shared utilites for neural network initialization and common patterns."""
+"""Shared utilities for neural network initialization and common patterns."""
 
 import torch.nn as nn 
 from einops import rearrange
@@ -34,7 +34,7 @@ class TemporalBatchMixin:
 
     def _forward(self,x): 
         """
-        Process 4D tensor [B, C, H, W]. MUst be implement by subclasses.
+        Process 4D tensor [B, C, H, W]. Must be implement by subclasses.
 
         Args:
             x: Input tensor of shape [B, C, H, W]

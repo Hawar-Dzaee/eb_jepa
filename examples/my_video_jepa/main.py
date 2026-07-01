@@ -41,7 +41,7 @@ from eb_jepa.training_utils import (
     setup_seed,
     setup_wandb,
 )
-from examples.video_jepa.eval import validation_loop
+from eval import validation_loop
 
 logger = get_logger(__name__)
 
@@ -129,7 +129,7 @@ def run(
     # Initialize Video JEPA model 
     logger.info("Initializing model...")
     encoder = ResNet5(cfg.model.dobs, cfg.model.henc, cfg.model.dstc)
-    predictor_model = ResUNet(2 * cfg.model.dstc, cfg.model.hpre, cfg.model.dstc)
+    predictor_model = ResUNet(2 * cfg.model.dstc, cfg.model.hpre, cfg.model.dstc, is_rnn= False)    # is_rnn = False is default (being explicit).
     predictor = StateOnlyPredictor(predictor_model,context_length=2)
     projector = Projector(f"{cfg.model.dstc}-{cfg.model.dstc*4}-{cfg.model.dstc*4}")
     regularizer = VCLoss(cfg.loss.std_coeff, cfg.loss.cov_coeff, proj=projector)
