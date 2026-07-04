@@ -6,7 +6,11 @@ __pycache__/**
 jepa_decoder.pth
 .vscode/**
 *.pth
+*.pth.tar
 *.pyc
+
+# macOS
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
