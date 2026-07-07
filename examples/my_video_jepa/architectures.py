@@ -128,6 +128,7 @@ class StateOnlyPredictor(SimplePredictor):
         prev_state = x[:, :, :-1] # [B, C, T-1, H, W]
         next_state = x[:, :, 1:]  # [B, C, T-1, H, W]
         combined_xa = torch.cat([prev_state, next_state], dim= 1)
+        # The effect of the above code is [B, C + C, T - 1, H, W]
         return self.predictor(combined_xa)  # ResUNet.forward
     
 
