@@ -6,12 +6,12 @@ import yaml
 from eb_jepa.datasets.two_rooms.utils import update_config_from_yaml
 from eb_jepa.datasets.two_rooms.wall_dataset import WallDataset, WallDatasetConfig
 
-DATASETS_DIR = Path(__file__).parent
+DATASETS_DIR = Path(__file__).parent # /Users/hawardizayee/Desktop/AMI/eb_jepa/eb_jepa/datasets
 
 
 def load_env_data_config(env_name: str, overrides: dict = None) -> dict:
     """Load base data config for an environment and apply overrides."""
-    config_path = DATASETS_DIR / env_name / "data_config.yaml"
+    config_path = DATASETS_DIR / env_name / "data_config.yaml"   
     with open(config_path) as f:
         base_config = yaml.safe_load(f)
     if overrides:
