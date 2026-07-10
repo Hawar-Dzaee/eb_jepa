@@ -237,7 +237,8 @@ arxiv_tmp/
 CLAUDE.md
 
 
-# Personal 
+# Personal
+.claude/
 notes.txt
 learned.txt
 questions.txt
