@@ -7,23 +7,27 @@ import torch.nn as nn
 import yaml
 from omegaconf import OmegaConf
 from torch.amp import GradScaler, autocast
+from torch.optim import AdamW
+from tqdm import tqdm 
 
 from architectures import (
     ImpalaEncoder,
     InverseDynamicsModel,
     Projector,
     RNNPredictor,
-    )
+)
 
 from eb_jepa.datasets.utils import init_data
 from jepa import JEPA, JEPAProbe
 from log_utils import get_logger
 from losses import SquareLossSeq,VC_IDM_Sim_Regularizer
+from schedulers import CosineWithWarmup
 from state_decoder import MLPXYHead
 from eb_jepa.training_utils import(
     get_default_dev_name,
     get_exp_name,
     get_unified_experiment_dir,
+    load_checkpoint,
     load_config,
     log_config,
     log_data_info,
@@ -218,4 +222,51 @@ def run(
     log_config(cfg)
 
     #--PROBER
-    xy_head = MLPXYHead()
+    xy_head = MLPXYHead(
+        input_shape= test_output.shape[1],
+        normalizer=loader.dataset.normalizer
+    ).to(device)
+    xy_prober = JEPAProbe(
+        jepa=jepa,
+        head=xy_head,
+        hcost=nn.MSELoss()
+    )
+
+    jepa_otimizer = AdamW(
+        jepa.parameters(),
+        lr = cfg.optim.lr,
+        weight_decay=cfg.optim.get("weight_decay", 1e-6)
+    )
+    jepa_scheduler = CosineWithWarmup(jepa_otimizer, total_steps, warmup_ratio=0.1)
+
+    probe_optimizer = AdamW(xy_prober.parameters(), lr = 1e-3, weight_decay=1e-5)
+    probe_scheduler = CosineWithWarmup(probe_optimizer, total_steps, warmup_ratio=0.1)
+
+    # --LOAD CKPT 
+    start_epoch = 0 
+    ckpt_info = {}
+    if cfg.meta.laod_model:
+        checkpoint_path = folder / cfg.meta.get("load_checkpoint", "latest.pth.tar")
+        ckpt_info = load_checkpoint(
+            checkpoint_path, jepa, jepa_otimizer, jepa_scheduler, device=device
+        )
+        start_epoch = ckpt_info.get("epoch", 0)
+        if "xy_head_state_dict" in ckpt_info:
+            xy_head.load_state_dict(ckpt_info["xy_head_state_dict"])
+
+    # Compile 
+    if torch.cuda.is_available() and cfg.model.compile:
+        logger.info("✅ Compiling model with torch.compile")
+        jepa = torch.compile(jepa)
+
+    # --EVAL ONLY MODEL
+    if cfg.meta.get("eval_only_mode", False):
+        if not enable_eval:
+            raise ValueError("eval_only_mode requires enable_plan_eval=True")
+        logger.info("Running evaluation only (no training)")
+        eval_results = launch_unroll_eval(
+            
+        )
+
+
+    

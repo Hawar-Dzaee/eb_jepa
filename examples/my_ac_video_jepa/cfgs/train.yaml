@@ -8,6 +8,7 @@ logging:
   tqdm_silent: false 
 meta:
   model_folder:
+  load_model: true
   enable_plan_eval: true 
   eval_every_itr: -1
   seed: 1
