@@ -16,14 +16,19 @@ from architectures import (
     )
 
 from eb_jepa.datasets.utils import init_data
+from jepa import JEPA, JEPAProbe
 from log_utils import get_logger
 from losses import SquareLossSeq,VC_IDM_Sim_Regularizer
+from state_decoder import MLPXYHead
 from eb_jepa.training_utils import(
     get_default_dev_name,
     get_exp_name,
     get_unified_experiment_dir,
     load_config,
+    log_config,
     log_data_info,
+    log_model_info,
+    save_checkpoint,
     setup_device,
     setup_seed,
     setup_wandb
@@ -115,7 +120,7 @@ def run(
     enable_eval = cfg.meta.get("enable_plan_eval", False)
     env_creator = None 
     plan_cfg = None 
-    num_eval_episoded = 10 
+    num_eval_episodes = 10 
 
     if enable_eval:
         if cfg.meta.eval_every_itr <= 0:
@@ -203,4 +208,14 @@ def run(
         sim_t_after_proj=cfg.model.regularizer.sim_t_after_proj
     )
     ploss = SquareLossSeq()
-    jepa = JEPA()
+    jepa = JEPA(encoder, aencoder, predictor, regularizer, ploss).to(device)
+
+    # Log model structure and parameters
+    encoder_params = sum(p.numel() for p in encoder.parameters())
+    predictor_params = sum(p.numel() for p in predictor.parameters())
+    log_model_info(jepa, {"encoder": encoder_params, "predictor": predictor_params})
+
+    log_config(cfg)
+
+    #--PROBER
+    xy_head = MLPXYHead()
