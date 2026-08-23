@@ -44,7 +44,7 @@ from eval import LinearProbe, evaluate_linear_probe
 logger = get_logger(__name__)
 
 def run(
-        fnmae: str = "cfgs/default.yaml",
+        fname: str = "cfgs/default.yaml",
         cfg = None,
         folder = None,
         **overrides
@@ -62,7 +62,7 @@ def run(
 
     # Load config 
     if cfg is None:
-        cfg = load_config(fnmae,overrides if overrides else None)
+        cfg = load_config(fname,overrides if overrides else None)
 
     # Setup using shared utilities 
     device = setup_device(cfg.meta.device)
@@ -93,7 +93,7 @@ def run(
 
     wandb_run = setup_wandb(
         project= "eb_jepa",
-        config={"exmaple": "image_jepa", **OmegaConf.to_container(cfg, resolve=True)},
+        config={"example": "image_jepa", **OmegaConf.to_container(cfg, resolve=True)},
         run_dir= exp_dir,
         run_name=exp_name,
         tags=["image_jepa", f"seed_{cfg.meta.seed}"],
@@ -210,10 +210,10 @@ def run(
 
     optimizer = LARS(
         [
-            {"params": model.parameters(),"lr":cfg.optim.lr},
+            {"params": model.parameters(),"lr":cfg.optim.lr},   # 0.3
             {"params": linear_probe.parameters(),"lr":0.1}
         ],
-        weight_decay=cfg.optim.weight_decay,
+        weight_decay=cfg.optim.weight_decay,    # 1.0e-4
         eta= 0.02,
         clip_lr=True,
         exclude_bias_n_norm=True,
@@ -246,7 +246,14 @@ def run(
             linear_probe.load_state_dict(ckpt_info["linear_probe_state_dict"])
     
 
-    # Training loop 
+    # Fixed monitor batch (256) for tracking encoder + projector embeddings across epochs
+    monitor_loader = DataLoader(train_dataset, batch_size=256, shuffle=False, num_workers=0)
+    monitor_views, _ = next(iter(monitor_loader))
+    monitor_v1 = monitor_views[0].to(device)
+    monitor_v2 = monitor_views[1].to(device)
+    f1_history, f2_history, z1_history, z2_history = [], [], [], []
+
+    # Training loop
     logger.info(f"Starting training for {cfg.optim.epochs} epochs...")
     start_time = time.time()
     use_amp = cfg.training.get("use_amp", True)
@@ -269,10 +276,21 @@ def run(
             tqdm_silent
         )
 
-        # Evaluate linear probe on validation set 
+        # Evaluate linear probe on validation set
         val_acc, val_loss = evaluate_linear_probe(
             model, linear_probe, val_loader, device, use_amp
         )
+
+        # Track encoder (f) + projector (z) embeddings on the fixed monitor batch
+        model.eval()
+        with torch.no_grad():
+            f1_epoch, z1_epoch = model(monitor_v1)
+            f2_epoch, z2_epoch = model(monitor_v2)
+        f1_history.append(f1_epoch.cpu())
+        f2_history.append(f2_epoch.cpu())
+        z1_history.append(z1_epoch.cpu())
+        z2_history.append(z2_epoch.cpu())
+        model.train()
 
         # Log metrics - dynamically add train_prefix to all train_metrics keys
         log_dict = {"epoch": epoch}
@@ -321,6 +339,18 @@ def run(
             )
 
     logger.info("Training completed!")
+
+    # Save embedding trajectories (encoder + projector, both views) for collapse analysis
+    torch.save(
+        {
+            "f1_history": f1_history,
+            "f2_history": f2_history,
+            "z1_history": z1_history,
+            "z2_history": z2_history,
+        },
+        exp_dir / "embedding_history.pt",
+    )
+
     if wandb_run:
         wandb.finish()
 
