@@ -33,3 +33,17 @@ failure modes are catastrophic (std=100/cov=100 → 10% collapse), so ±2% clean
 separates "reproduced" from "broken." Upgrade to a multi-seed noise estimate
 (tolerance ≈ 2×std over 2–3 seeds) if any Phase-B result needs to be publishable —
 or run the original here for an on-machine reference to tighten the band.
+
+## Baseline frozen (2026-08-23) — pointers, not criteria
+- **Result: PASS.** Val linear-probe **89.44%** (inside 88.12–92.12%). Curves confirm
+  convergence (val_acc plateaus ~90, val_loss falls smoothly) and no collapse
+  (`train_var_loss ≈ 0.48` at end). Run on a RunPod RTX 4090.
+- **Code anchor:** `git tag baseline` → commit `00d6855` (pushed). Diff Phase-B work
+  with `git diff baseline -- examples/my_image_jepa/`.
+- **Metrics anchor:** wandb run `resnet_vicreg_proj_bs256_ep300_ph1024_po1024_std1.0_cov100.0`,
+  tagged `baseline` in group `baseline`.
+- **Weights + embeddings:** run dir
+  `image_jepa/dev_2026-08-23_15-32/resnet_vicreg_proj_bs256_ep300_ph1024_po1024_std1.0_cov100.0_seed42/`
+  holding `embedding_history.pt`, `latest.pth.tar`, `epoch_50…250.pth.tar`.
+  Lives on the RunPod volume `/workspace/eb_jepa_data/checkpoints/…` **and** backed up
+  locally at `AMI/eb_jepa_data/checkpoints/…` (sibling of the repo, outside git).
