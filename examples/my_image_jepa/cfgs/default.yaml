@@ -16,7 +16,7 @@ model:
   patch_size: 2     # For ViT only 
 
   # Projector 
-  use_projector: true 
+  use_projector: false 
   proj_hidden_dim: 1024
   proj_output_dim: 1024 
 
